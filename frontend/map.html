@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SafeHer - Live Safety Map</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+  <link rel="stylesheet" href="style.css">
+  <style>
+    #map {
+      height: 500px;
+      width: 100%;
+      border-radius: 20px;
+      border: 2px solid rgba(155, 89, 182, 0.3);
+    }
+    .map-section {
+      padding: 60px 40px;
+      background: var(--darker);
+    }
+    .map-section h2 {
+      color: var(--primary);
+      font-size: 36px;
+      text-align: center;
+      margin-bottom: 30px;
+    }
+    .map-controls {
+      display: flex;
+      gap: 15px;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+    .map-btn {
+      padding: 10px 25px;
+      border: none;
+      border-radius: 25px;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 600;
+      transition: all 0.3s;
+    }
+    .map-btn.danger {
+      background: #e74c3c;
+      color: white;
+    }
+    .map-btn.safe {
+      background: #2ecc71;
+      color: white;
+    }
+    .map-btn.route {
+      background: #9b59b6;
+      color: white;
+    }
+    .map-btn:hover {
+      transform: scale(1.05);
+      opacity: 0.9;
+    }
+    .map-legend {
+      display: flex;
+      gap: 20px;
+      justify-content: center;
+      margin-top: 20px;
+      flex-wrap: wrap;
+    }
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 13px;
+      color: rgba(255,255,255,0.7);
+    }
+    .legend-dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+    }
+    .location-info {
+      text-align: center;
+      margin-top: 15px;
+      font-size: 13px;
+      color: rgba(255,255,255,0.5);
+    }
+  </style>
+</head>
+<body>
+
+  <!-- NAVBAR -->
+  <nav class="navbar">
+    <div class="logo">🛡️ SafeHer</div>
+    <div class="nav-links">
+      <a href="index.html">Home</a>
+      <a href="map.html" style="color:#9b59b6">Safety Map</a>
+    </div>
+  </nav>
+
+  <!-- MAP SECTION -->
+  <section class="map-section">
+    <h2>🗺️ Live Safety Map</h2>
+
+    <div class="map-controls">
+      <button class="map-btn danger" onclick="reportDangerZone()">
+        🔴 Report Danger Zone
+      </button>
+      <button class="map-btn safe" onclick="markSafeZone()">
+        🟢 Mark Safe Zone
+      </button>
+      <button class="map-btn route" onclick="findSafeRoute()">
+        🗺️ Find Safe Route
+      </button>
+    </div>
+
+    <div id="map"></div>
+
+    <div class="map-legend">
+      <div class="legend-item">
+        <div class="legend-dot" style="background:#e74c3c"></div>
+        <span>Danger Zone</span>
+      </div>
+      <div class="legend-item">
+        <div class="legend-dot" style="background:#2ecc71"></div>
+        <span>Safe Zone</span>
+      </div>
+      <div class="legend-item">
+        <div class="legend-dot" style="background:#3498db"></div>
+        <span>Your Location</span>
+      </div>
+      <div class="legend-item">
+        <div class="legend-dot" style="background:#9b59b6"></div>
+        <span>Police Station</span>
+      </div>
+    </div>
+
+    <div class="location-info" id="locationInfo">
+      📍 Getting your location...
+    </div>
+  </section>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script>
+    // Initialize map centered on India
+    let map = L.map('map').setView([20.5937, 78.9629], 5);
+    let userMarker = null;
+    let userLocation = null;
+
+    // Add OpenStreetMap tiles
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '© OpenStreetMap contributors',
+      maxZoom: 19
+    }).addTo(map);
+
+    // Custom Icons
+    const dangerIcon = L.divIcon({
+      html: '🔴',
+      className: 'emoji-icon',
+      iconSize: [30, 30]
+    });
+
+    const safeIcon = L.divIcon({
+      html: '🟢',
+      className: 'emoji-icon',
+      iconSize: [30, 30]
+    });
+
+    const policeIcon = L.divIcon({
+      html: '👮',
+      className: 'emoji-icon',
+      iconSize: [30, 30]
+    });
+
+    const userIcon = L.divIcon({
+      html: '📍',
+      className: 'emoji-icon',
+      iconSize: [30, 30]
+    });
+
+    // Sample danger zones around India
+    const sampleDangerZones = [
+      { lat: 28.6139, lng: 77.2090, desc: "Reported unsafe at night" },
+      { lat: 19.0760, lng: 72.8777, desc: "Poorly lit area" },
+      { lat: 12.9716, lng: 77.5946, desc: "Reported incidents" },
+      { lat: 22.5726, lng: 88.3639, desc: "Avoid after 10PM" },
+      { lat: 17.3850, lng: 78.4867, desc: "Community reported" }
+    ];
+
+    // Sample safe zones
+    const sampleSafeZones = [
+      { lat: 28.6200, lng: 77.2100, desc: "Well lit, police patrol" },
+      { lat: 19.0800, lng: 72.8800, desc: "Safe neighborhood" },
+      { lat: 12.9800, lng: 77.5900, desc: "CCTV covered area" }
+    ];
+
+    // Sample police stations
+    const policeStations = [
+      { lat: 28.6300, lng: 77.2200, desc: "Delhi Police Station" },
+      { lat: 19.0700, lng: 72.8700, desc: "Mumbai Police Station" },
+      { lat: 12.9700, lng: 77.5800, desc: "Bangalore Police Station" }
+    ];
+
+    // Add danger zones to map
+    sampleDangerZones.forEach(zone => {
+      L.marker([zone.lat, zone.lng], {icon: dangerIcon})
+        .addTo(map)
+        .bindPopup(`
+          <b style="color:red">⚠️ Danger Zone</b><br>
+          ${zone.desc}<br>
+          <small>Community reported</small>
+        `);
+
+      // Add danger circle
+      L.circle([zone.lat, zone.lng], {
+        color: 'red',
+        fillColor: '#e74c3c',
+        fillOpacity: 0.2,
+        radius: 500
+      }).addTo(map);
+    });
+
+    // Add safe zones
+    sampleSafeZones.forEach(zone => {
+      L.marker([zone.lat, zone.lng], {icon: safeIcon})
+        .addTo(map)
+        .bindPopup(`
+          <b style="color:green">✅ Safe Zone</b><br>
+          ${zone.desc}
+        `);
+    });
+
+    // Add police stations
+    policeStations.forEach(station => {
+      L.marker([station.lat, station.lng], {icon: policeIcon})
+        .addTo(map)
+        .bindPopup(`
+          <b>👮 ${station.desc}</b><br>
+          <a href="tel:100">📞 Call 100</a>
+        `);
+    });
+
+    // Get user location
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          userLocation = {
+            lat: pos.coords.latitude,
+            lng: pos.coords.longitude
+          };
+
+          // Center map on user
+          map.setView([userLocation.lat, userLocation.lng], 14);
+
+          // Add user marker
+          userMarker = L.marker(
+            [userLocation.lat, userLocation.lng],
+            {icon: userIcon}
+          )
+          .addTo(map)
+          .bindPopup('📍 You are here!')
+          .openPopup();
+
+          // Add accuracy circle
+          L.circle([userLocation.lat, userLocation.lng], {
+            color: '#3498db',
+            fillColor: '#3498db',
+            fillOpacity: 0.1,
+            radius: 100
+          }).addTo(map);
+
+          document.getElementById('locationInfo').textContent =
+            `📍 Your location: ${userLocation.lat.toFixed(4)}, ${userLocation.lng.toFixed(4)}`;
+        },
+        (err) => {
+          document.getElementById('locationInfo').textContent =
+            '⚠️ Location access denied. Enable location for best experience.';
+        }
+      );
+    }
+
+    // Report danger zone
+    function reportDangerZone() {
+      if (!userLocation) {
+        alert('Please enable location first!');
+        return;
+      }
+
+      const desc = prompt('Describe the danger (e.g., "Poorly lit area", "Suspicious activity"):');
+      if (desc) {
+        L.marker([userLocation.lat, userLocation.lng], {icon: dangerIcon})
+          .addTo(map)
+          .bindPopup(`
+            <b style="color:red">⚠️ New Report</b><br>
+            ${desc}<br>
+            <small>Just reported</small>
+          `)
+          .openPopup();
+
+        L.circle([userLocation.lat, userLocation.lng], {
+          color: 'red',
+          fillColor: '#e74c3c',
+          fillOpacity: 0.2,
+          radius: 300
+        }).addTo(map);
+
+        // Send to backend
+        fetch('http://127.0.0.1:8000/api/danger-zones/report', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            location: userLocation,
+            description: desc,
+            severity: 'medium'
+          })
+        });
+
+        alert('✅ Danger zone reported! Thank you for keeping the community safe.');
+      }
+    }
+
+    // Mark safe zone
+    function markSafeZone() {
+      if (!userLocation) {
+        alert('Please enable location first!');
+        return;
+      }
+
+      L.marker([userLocation.lat, userLocation.lng], {icon: safeIcon})
+        .addTo(map)
+        .bindPopup('<b style="color:green">✅ Safe Zone</b><br>Marked by community')
+        .openPopup();
+
+      alert('✅ Safe zone marked! Thank you!');
+    }
+
+    // Find safe route
+    function findSafeRoute() {
+      const dest = prompt('Enter destination (e.g., "Connaught Place, Delhi"):');
+      if (dest) {
+        alert(`🗺️ Finding safest route to "${dest}"...\n\nIn the full version, this will show a route avoiding all danger zones!`);
+      }
+    }
+  </script>
+</body>
+</html>
