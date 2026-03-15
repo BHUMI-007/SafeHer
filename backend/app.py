@@ -538,4 +538,6 @@ if __name__ == '__main__':
     print("📞 Twilio Voice Calls: Enabled")
     print("🤖 Gemini AI: Enabled")
     print("📡 Server running at http://localhost:8000")
-    app.run(debug=True, port=8000)
+    if __name__ == '__main__':
+    port = int(os.environ.get('PORT', 8000))
+    app.run(host='0.0.0.0', port=port, debug=False)
