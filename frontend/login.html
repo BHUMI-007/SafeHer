@@ -281,51 +281,52 @@
 
     // Send OTP
     async function sendOTP() {
-  const phoneInput = document.getElementById('phoneNumber').value;
-  const code = document.getElementById('countryCode').value.trim();
-  
-  // Remove everything except digits
-  const cleanPhone = phoneInput.split('').filter(c => c >= '0' && c <= '9').join('');
-  const fullPhone = code + cleanPhone;
-  const errorEl = document.getElementById('step1Error');
+    const phoneInput = document.getElementById('phoneNumber').value.toString().trim();
 
-  console.log('Phone:', fullPhone, 'Length:', cleanPhone.length);
-
-  if (cleanPhone.length !== 10) {
-    errorEl.textContent = '⚠️ Please enter exactly 10 digits. Got: ' + cleanPhone.length;
-    errorEl.style.color = '#e74c3c';
-    return;
-  }
-
-  errorEl.textContent = 'Sending OTP...';
-  errorEl.style.color = '#2ecc71';
-
-  try {
-    if (!recaptchaVerifier) initRecaptcha();
-
-    confirmationResult = await auth.signInWithPhoneNumber(
-      fullPhone,
-      recaptchaVerifier
-    );
-
-    document.getElementById('step1').classList.remove('active');
-    document.getElementById('step2').classList.add('active');
-    document.getElementById('phoneDisplay').textContent = fullPhone;
-    document.getElementById('otp1').focus();
-
-  } catch(err) {
-    console.error('OTP Error:', err);
-    errorEl.textContent = '⚠️ ' + err.message;
-    errorEl.style.color = '#e74c3c';
+    const code = document.getElementById('countryCode').value.trim();
     
-    // Reset recaptcha on error
-    if (recaptchaVerifier) {
-      recaptchaVerifier.clear();
-      recaptchaVerifier = null;
-      document.getElementById('recaptcha-container').innerHTML = '';
-      setTimeout(initRecaptcha, 500);
+    // Remove everything except digits
+    const cleanPhone = phoneInput.split('').filter(c => c >= '0' && c <= '9').join('');
+    const fullPhone = code + cleanPhone;
+    const errorEl = document.getElementById('step1Error');
+
+    console.log('Phone:', fullPhone, 'Length:', cleanPhone.length);
+
+    if (cleanPhone.length !== 10) {
+        errorEl.textContent = '⚠️ Please enter exactly 10 digits. Got: ' + cleanPhone.length;
+        errorEl.style.color = '#e74c3c';
+        return;
     }
-  }
+
+    errorEl.textContent = 'Sending OTP...';
+    errorEl.style.color = '#2ecc71';
+
+    try {
+        if (!recaptchaVerifier) initRecaptcha();
+
+        confirmationResult = await auth.signInWithPhoneNumber(
+        fullPhone,
+        recaptchaVerifier
+        );
+
+        document.getElementById('step1').classList.remove('active');
+        document.getElementById('step2').classList.add('active');
+        document.getElementById('phoneDisplay').textContent = fullPhone;
+        document.getElementById('otp1').focus();
+
+    } catch(err) {
+        console.error('OTP Error:', err);
+        errorEl.textContent = '⚠️ ' + err.message;
+        errorEl.style.color = '#e74c3c';
+        
+        // Reset recaptcha on error
+        if (recaptchaVerifier) {
+        recaptchaVerifier.clear();
+        recaptchaVerifier = null;
+        document.getElementById('recaptcha-container').innerHTML = '';
+        setTimeout(initRecaptcha, 500);
+        }
+    }
 }
 
     // Move to next OTP input
