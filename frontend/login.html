@@ -285,7 +285,7 @@
   const code = document.getElementById('countryCode').value.trim();
   
   // Remove everything except digits
-  const cleanPhone = phoneInput.replace(/\D/g, '');
+  const cleanPhone = phoneInput.split('').filter(c => c >= '0' && c <= '9').join('');
   const fullPhone = code + cleanPhone;
   const errorEl = document.getElementById('step1Error');
 
