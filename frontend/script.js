@@ -600,8 +600,7 @@ function listenForDistressWord() {
 }
 
 // ===== BACKGROUND VOICE DETECTION =====
-let recognition = null;
-let isListening = false;
+
 
 function startVoiceDetection() {
   if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
