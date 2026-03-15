@@ -281,24 +281,26 @@
 
     // Send OTP
     async function sendOTP() {
-      const phone = document.getElementById('phoneNumber').value;
-      const code = document.getElementById('countryCode').value;
-      const fullPhone = code + phone;
-      const errorEl = document.getElementById('step1Error');
+    const phone = document.getElementById('phoneNumber').value.trim();
+    const code = document.getElementById('countryCode').value.trim();
+    const cleanPhone = phone.replace(/\s+/g, '').replace(/-/g, '');
+    const fullPhone = code + cleanPhone;
+    const errorEl = document.getElementById('step1Error');
 
-      if (phone.length !== 10) {
+    if (cleanPhone.length < 10) {
         errorEl.textContent = '⚠️ Please enter a valid 10-digit number';
         return;
-      }
+    }
 
-      errorEl.textContent = '';
+    errorEl.textContent = 'Sending OTP...';
+    errorEl.style.color = '#2ecc71';
 
-      try {
+    try {
         if (!recaptchaVerifier) initRecaptcha();
 
         confirmationResult = await auth.signInWithPhoneNumber(
-          fullPhone,
-          recaptchaVerifier
+        fullPhone,
+        recaptchaVerifier
         );
 
         // Show OTP step
