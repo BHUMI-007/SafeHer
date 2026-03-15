@@ -14,7 +14,8 @@ firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
 
 // Backend URL
-const BACKEND_URL = 'http://127.0.0.1:8000';
+const BACKEND_URL = 'https://safeher-0x4u.onrender.com';
+
 
 // ===== CONTACTS SYSTEM =====
 let contacts = JSON.parse(localStorage.getItem('safeher_contacts')) || [
@@ -397,9 +398,233 @@ function cancelSOS() {
   });
 }
 
-// ===== SHAKE DETECTION =====
+// ===== SHAKE + VOICE COMBO =====
 let lastX, lastY, lastZ;
 let shakeThreshold = 15;
+let shakeCount = 0;
+let shakeTimer = null;
+let voiceActivated = false;
+let comboActivated = false;
+
+// STEP 1 — Shake Detection
+window.addEventListener('devicemotion', (e) => {
+  const acc = e.accelerationIncludingGravity;
+  if (!acc) return;
+
+  if (lastX !== undefined) {
+    const deltaX = Math.abs(acc.x - lastX);
+    const deltaY = Math.abs(acc.y - lastY);
+    const deltaZ = Math.abs(acc.z - lastZ);
+    const totalShake = deltaX + deltaY + deltaZ;
+
+    if (totalShake > shakeThreshold) {
+      shakeCount++;
+      console.log(`Shake detected! Count: ${shakeCount}`);
+
+      // Clear previous timer
+      if (shakeTimer) clearTimeout(shakeTimer);
+
+      // Reset shake count after 3 seconds
+      shakeTimer = setTimeout(() => {
+        shakeCount = 0;
+      }, 3000);
+
+      // 3 shakes = activate voice verification
+      if (shakeCount >= 3 && !comboActivated) {
+        comboActivated = true;
+        startVoiceVerification();
+      }
+    }
+  }
+
+  lastX = acc.x;
+  lastY = acc.y;
+  lastZ = acc.z;
+});
+
+// STEP 2 — Voice Verification after Shake
+function startVoiceVerification() {
+  showNotification('📳 Shake detected! Say "HELP" or "BACHAO" to confirm SOS!');
+
+  // Visual indicator
+  const indicator = document.createElement('div');
+  indicator.id = 'voiceIndicator';
+  indicator.style.cssText = `
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: rgba(231, 76, 60, 0.95);
+    color: white;
+    padding: 30px 40px;
+    border-radius: 20px;
+    text-align: center;
+    z-index: 99998;
+    font-size: 18px;
+    animation: pulse 1s infinite;
+  `;
+  indicator.innerHTML = `
+    <div style="font-size:40px">🎙️</div>
+    <div style="margin:10px 0">Listening for distress word...</div>
+    <div style="font-size:14px;opacity:0.8">Say "HELP" or "BACHAO"</div>
+    <div style="font-size:12px;opacity:0.6;margin-top:5px">
+      Auto cancel in 10 seconds
+    </div>
+  `;
+  document.body.appendChild(indicator);
+
+  // Start listening specifically for distress words
+  listenForDistressWord();
+
+  // Auto cancel after 10 seconds
+  setTimeout(() => {
+    const ind = document.getElementById('voiceIndicator');
+    if (ind) ind.remove();
+    comboActivated = false;
+    voiceActivated = false;
+    showNotification('✅ No distress detected. Stay safe! 💜');
+  }, 10000);
+}
+
+// STEP 3 — Listen specifically for distress words
+function listenForDistressWord() {
+  if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+    // Fallback if speech not supported
+    showNotification('⚠️ Voice not supported! Tap SOS button if in danger!');
+    return;
+  }
+
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  const verifyRecognition = new SpeechRecognition();
+  verifyRecognition.lang = 'hi-IN';
+  verifyRecognition.continuous = false;
+  verifyRecognition.interimResults = true;
+
+  const distressWords = [
+    'help', 'bachao', 'bachao mujhe', 'help me',
+    'chodo', 'mat karo', 'madad', 'madad karo',
+    'help karo', 'danger', 'emergency', 'sos',
+    'save me', 'let me go', 'leave me'
+  ];
+
+  verifyRecognition.onresult = (event) => {
+    const transcript = Array.from(event.results)
+      .map(result => result[0].transcript.toLowerCase())
+      .join(' ');
+
+    console.log('Heard:', transcript);
+
+    // Check for distress words
+    const distressDetected = distressWords.some(word =>
+      transcript.includes(word.toLowerCase())
+    );
+
+    if (distressDetected && !sosActive) {
+      voiceActivated = true;
+
+      // Remove indicator
+      const ind = document.getElementById('voiceIndicator');
+      if (ind) ind.remove();
+
+      showNotification(`🆘 Distress word detected: "${transcript}"! Activating SOS!`);
+
+      // Small delay then activate
+      setTimeout(() => {
+        activateSOS();
+        comboActivated = false;
+      }, 500);
+
+      verifyRecognition.stop();
+    }
+  };
+
+  verifyRecognition.onerror = (err) => {
+    console.log('Voice error:', err);
+    comboActivated = false;
+  };
+
+  verifyRecognition.onend = () => {
+    comboActivated = false;
+  };
+
+  verifyRecognition.start();
+}
+
+// ===== BACKGROUND VOICE DETECTION =====
+let recognition = null;
+let isListening = false;
+
+function startVoiceDetection() {
+  if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+    console.log('Speech recognition not supported');
+    return;
+  }
+
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  recognition = new SpeechRecognition();
+  recognition.continuous = true;
+  recognition.interimResults = true;
+  recognition.lang = 'hi-IN';
+
+  recognition.onresult = (event) => {
+    const transcript = Array.from(event.results)
+      .map(result => result[0].transcript)
+      .join(' ');
+    analyzeVoiceDistress(transcript);
+  };
+
+  recognition.onerror = (err) => {
+    console.log('Voice error:', err);
+    isListening = false;
+  };
+
+  recognition.onend = () => {
+    if (isListening) {
+      setTimeout(() => {
+        try { recognition.start(); } catch(e) {}
+      }, 1000);
+    }
+  };
+
+  try {
+    recognition.start();
+    isListening = true;
+
+    // Update voice status
+    const voiceStatus = document.getElementById('voiceStatus');
+    if (voiceStatus) {
+      voiceStatus.textContent = 'Listening 🎙️';
+      voiceStatus.style.color = '#2ecc71';
+    }
+
+    showNotification('🎙️ Voice + Shake protection active!');
+  } catch(e) {
+    console.log('Voice start error:', e);
+  }
+}
+
+function analyzeVoiceDistress(transcript) {
+  if (!transcript || transcript.length < 3) return;
+
+  fetch(`${BACKEND_URL}/api/ai/voice-alert`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      transcript: transcript,
+      location: userLocation,
+      contacts: contacts
+    })
+  })
+  .then(res => res.json())
+  .then(data => {
+    if (data.isDistress && data.confidence > 0.8 && !sosActive) {
+      showNotification(`🆘 AI detected distress! Activating SOS...`);
+      activateSOS();
+    }
+  })
+  .catch(err => console.log('Voice analysis error:', err));
+}
+
 
 window.addEventListener('devicemotion', (e) => {
   const acc = e.accelerationIncludingGravity;
