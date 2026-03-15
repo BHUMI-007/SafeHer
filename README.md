@@ -55,7 +55,7 @@ SafeHer is an AI-powered Progressive Web App (PWA) designed to keep women safe. 
 ---
 
 ## 📁 Project Structure
-
+```
 SafeHer/
 ├── frontend/
 │   ├── index.html      # Main app
@@ -71,7 +71,7 @@ SafeHer/
 │   ├── requirements.txt
 │   └── Procfile
 └── firebase.json
-
+```
 
 ---
 
