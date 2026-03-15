@@ -1,9 +1,3 @@
-
-// Simple login check
-if (!localStorage.getItem('safeher_user_id')) {
-  window.location.href = 'login.html';
-}
-
 async function loadUserFromFirebase(uid) {
   try {
     const snapshot = await firebase.database()
@@ -772,6 +766,19 @@ function showNotification(message) {
 
 // ===== INITIALIZE =====
 document.addEventListener('DOMContentLoaded', () => {
+  // Login check
+  const userId = localStorage.getItem('safeher_user_id');
+  if (!userId) {
+    window.location.href = 'login.html';
+    return;
+  }
+
+  // Show username in navbar
+  const userName = localStorage.getItem('safeher_user_name');
+  if (userName) {
+    const logo = document.querySelector('.logo');
+    if (logo) logo.textContent = `🛡️ Hi, ${userName}!`;
+  }
   renderContacts();
   updateContactsStatus();
   updateOnlineStatus(); 
