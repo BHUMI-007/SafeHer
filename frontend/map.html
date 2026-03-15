@@ -330,12 +330,231 @@
     }
 
     // Find safe route
-    function findSafeRoute() {
-      const dest = prompt('Enter destination (e.g., "Connaught Place, Delhi"):');
-      if (dest) {
-        alert(`🗺️ Finding safest route to "${dest}"...\n\nIn the full version, this will show a route avoiding all danger zones!`);
+      async function findSafeRoute() {
+    const dest = prompt('Enter destination (e.g., "Connaught Place, Delhi"):');
+    if (!dest) return;
+
+    // Show loading
+    showMapNotification('🤖 AI analyzing route safety...');
+
+    try {
+      const response = await fetch(
+        'https://safeher-0x4u.onrender.com/api/ai/analyze-route',
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            origin: userLocation,
+            destination: dest
+          })
+        }
+      );
+
+      const data = await response.json();
+
+      if (data.success) {
+        // Show AI analysis panel
+        showRouteAnalysis(data, dest);
+
+        // Draw route on map
+        if (userLocation) {
+          drawSafeRoute(dest, data.safetyRating);
+        }
       }
+    } catch(err) {
+      showMapNotification('⚠️ Could not analyze route. Stay safe!');
     }
+  }
+
+  function showRouteAnalysis(data, destination) {
+    // Remove existing panel
+    const existing = document.getElementById('routePanel');
+    if (existing) existing.remove();
+
+    const safetyColor = data.safetyRating >= 7 ? '#2ecc71' :
+                        data.safetyRating >= 4 ? '#f39c12' : '#e74c3c';
+
+    const panel = document.createElement('div');
+    panel.id = 'routePanel';
+    panel.style.cssText = `
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: #16213e;
+      border-top: 2px solid ${safetyColor};
+      padding: 20px;
+      z-index: 9999;
+      max-height: 60vh;
+      overflow-y: auto;
+    `;
+
+    panel.innerHTML = `
+      <div style="display:flex;justify-content:space-between;align-items:center;">
+        <h3 style="color:${safetyColor}">
+          🗺️ Route to ${destination}
+        </h3>
+        <button onclick="document.getElementById('routePanel').remove()"
+          style="background:none;border:none;color:white;font-size:20px;cursor:pointer;">
+          ✕
+        </button>
+      </div>
+
+      <div style="margin:15px 0;padding:10px;background:rgba(255,255,255,0.05);
+        border-radius:10px;">
+        <div style="font-size:24px;color:${safetyColor};font-weight:700;">
+          Safety Score: ${data.safetyRating}/10
+        </div>
+        <div style="font-size:13px;color:rgba(255,255,255,0.6);margin-top:5px;">
+          ${data.recommended ? '✅ Route recommended' : '⚠️ Use with caution'}
+        </div>
+      </div>
+
+      ${data.concerns && data.concerns.length > 0 ? `
+      <div style="margin:10px 0;">
+        <div style="color:#e74c3c;font-weight:600;margin-bottom:8px;">
+          ⚠️ Safety Concerns:
+        </div>
+        ${data.concerns.map(c => `
+          <div style="padding:5px 0;font-size:13px;color:rgba(255,255,255,0.7);">
+            • ${c}
+          </div>
+        `).join('')}
+      </div>
+      ` : ''}
+
+      ${data.tips && data.tips.length > 0 ? `
+      <div style="margin:10px 0;">
+        <div style="color:#2ecc71;font-weight:600;margin-bottom:8px;">
+          💡 Safety Tips:
+        </div>
+        ${data.tips.map(t => `
+          <div style="padding:5px 0;font-size:13px;color:rgba(255,255,255,0.7);">
+            ✓ ${t}
+          </div>
+        `).join('')}
+      </div>
+      ` : ''}
+
+      ${data.precautions ? `
+      <div style="margin:10px 0;padding:10px;background:rgba(155,89,182,0.2);
+        border-radius:10px;font-size:13px;color:rgba(255,255,255,0.8);">
+        🛡️ ${data.precautions}
+      </div>
+      ` : ''}
+
+      <div style="display:flex;gap:10px;margin-top:15px;">
+        <button onclick="startJourneyTracking('${destination}')"
+          style="flex:1;padding:12px;background:#9b59b6;color:white;
+          border:none;border-radius:10px;cursor:pointer;font-weight:600;">
+          🚶 Start Journey
+        </button>
+        <button onclick="document.getElementById('routePanel').remove()"
+          style="flex:1;padding:12px;background:rgba(255,255,255,0.1);
+          color:white;border:none;border-radius:10px;cursor:pointer;">
+          Cancel
+        </button>
+      </div>
+    `;
+
+    document.body.appendChild(panel);
+  }
+
+  function drawSafeRoute(destination, safetyRating) {
+    // Draw a visual route line on map
+    if (!userLocation) return;
+
+    const color = safetyRating >= 7 ? '#2ecc71' :
+                  safetyRating >= 4 ? '#f39c12' : '#e74c3c';
+
+    // Add destination marker
+    const destIcon = L.divIcon({
+      html: '🎯',
+      className: 'emoji-icon',
+      iconSize: [30, 30]
+    });
+
+    // Geocode destination using Nominatim (free)
+    fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(destination)}`)
+      .then(res => res.json())
+      .then(results => {
+        if (results && results[0]) {
+          const destLat = parseFloat(results[0].lat);
+          const destLng = parseFloat(results[0].lon);
+
+          // Add destination marker
+          L.marker([destLat, destLng], {icon: destIcon})
+            .addTo(map)
+            .bindPopup(`🎯 Destination: ${destination}`)
+            .openPopup();
+
+          // Draw route line
+          const routeLine = L.polyline(
+            [[userLocation.lat, userLocation.lng], [destLat, destLng]],
+            {
+              color: color,
+              weight: 4,
+              opacity: 0.8,
+              dashArray: safetyRating < 7 ? '10, 10' : null
+            }
+          ).addTo(map);
+
+          // Fit map to show both points
+          map.fitBounds(routeLine.getBounds(), {padding: [50, 50]});
+
+          showMapNotification(`🗺️ Route drawn! Safety: ${safetyRating}/10`);
+        }
+      })
+      .catch(err => console.log('Geocoding error:', err));
+  }
+
+  function startJourneyTracking(destination) {
+    document.getElementById('routePanel').remove();
+    showMapNotification(`🚶 Journey started to ${destination}! Stay safe! 💜`);
+
+    // Update location every 30 seconds during journey
+    const journeyInterval = setInterval(() => {
+      if (userLocation) {
+        db.ref('live_location').set({
+          lat: userLocation.lat,
+          lng: userLocation.lng,
+          timestamp: new Date().toISOString(),
+          destination: destination,
+          journeyActive: true
+        });
+      }
+    }, 30000);
+
+    // Store interval ID to stop later
+    window.journeyInterval = journeyInterval;
+
+    showNotification(`📍 Live tracking active for journey to ${destination}`);
+  }
+
+  function showMapNotification(message) {
+    const existing = document.querySelector('.map-notification');
+    if (existing) existing.remove();
+
+    const notif = document.createElement('div');
+    notif.className = 'map-notification';
+    notif.textContent = message;
+    notif.style.cssText = `
+      position: fixed;
+      top: 80px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(155, 89, 182, 0.95);
+      color: white;
+      padding: 12px 25px;
+      border-radius: 25px;
+      font-size: 14px;
+      z-index: 10000;
+      max-width: 90%;
+      text-align: center;
+    `;
+    document.body.appendChild(notif);
+    setTimeout(() => notif.remove(), 4000);
+  }
   </script>
 </body>
 </html>
