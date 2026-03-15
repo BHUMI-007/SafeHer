@@ -13,9 +13,12 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
 
+// Backend URL
+const BACKEND_URL = 'http://127.0.0.1:8000';
+
 // ===== CONTACTS SYSTEM =====
 let contacts = JSON.parse(localStorage.getItem('safeher_contacts')) || [
-  { name: "Mom", phone: "+918816926841" },
+  { name: "Mom", phone: "+91XXXXXXXXXX" },
   { name: "Dad", phone: "+91XXXXXXXXXX" },
   { name: "Best Friend", phone: "+91XXXXXXXXXX" }
 ];
@@ -28,7 +31,7 @@ function renderContacts() {
       <div class="contact-card">
         <h4>👤 ${contact.name}</h4>
         <p>${contact.phone}</p>
-        <button onclick="removeContact(${index})" 
+        <button onclick="removeContact(${index})"
           style="background:none;border:none;color:red;cursor:pointer;margin-top:8px;">
           Remove
         </button>
@@ -55,6 +58,15 @@ function addContact() {
     document.getElementById('contactName').value = '';
     document.getElementById('contactPhone').value = '';
     showNotification('✅ Contact added successfully!');
+
+    // Save to backend
+    fetch(`${BACKEND_URL}/api/contacts`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId: getUserId(), contacts })
+    });
+
+    updateContactsStatus();
   } else {
     showNotification('⚠️ Please fill all fields!');
   }
@@ -64,15 +76,29 @@ function removeContact(index) {
   contacts.splice(index, 1);
   localStorage.setItem('safeher_contacts', JSON.stringify(contacts));
   renderContacts();
+  updateContactsStatus();
   showNotification('Contact removed!');
 }
 
-// ===== SOS SYSTEM =====
-let sosTimer = null;
-let sosActive = false;
+function updateContactsStatus() {
+  const statusItems = document.querySelectorAll('.status-item');
+  if (statusItems[2]) {
+    statusItems[2].innerHTML = `👥 ${contacts.length} Contacts Ready`;
+  }
+}
+
+function getUserId() {
+  let userId = localStorage.getItem('safeher_user_id');
+  if (!userId) {
+    userId = 'user_' + Date.now();
+    localStorage.setItem('safeher_user_id', userId);
+  }
+  return userId;
+}
+
+// ===== LOCATION =====
 let userLocation = null;
 
-// Get location on load
 navigator.geolocation.watchPosition(
   (pos) => {
     userLocation = {
@@ -80,6 +106,8 @@ navigator.geolocation.watchPosition(
       lng: pos.coords.longitude
     };
     updateLocationStatus();
+    trackMovement();
+    getAIRiskScore();
   },
   (err) => console.log('Location error:', err),
   { enableHighAccuracy: true }
@@ -92,10 +120,175 @@ function updateLocationStatus() {
   }
 }
 
+// ===== MOVEMENT TRACKING =====
+function trackMovement() {
+  if (!userLocation) return;
+  fetch(`${BACKEND_URL}/api/movement/track`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      userId: getUserId(),
+      location: userLocation
+    })
+  })
+  .then(res => res.json())
+  .then(data => {
+    if (data.anomalyDetected) {
+      showNotification('🤖 AI Alert: ' + data.message);
+    }
+  })
+  .catch(err => console.log('Tracking error:', err));
+}
+
+// ===== AI RISK SCORING =====
+let riskScoreInterval = null;
+
+function getAIRiskScore() {
+  if (!userLocation) return;
+  fetch(`${BACKEND_URL}/api/ai/risk-score`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ location: userLocation })
+  })
+  .then(res => res.json())
+  .then(data => {
+    if (data.success) {
+      updateSafetyStatus(data);
+      if (data.shouldCheckin) {
+        startAICheckin();
+      }
+    }
+  })
+  .catch(err => console.log('Risk score error:', err));
+}
+
+function updateSafetyStatus(riskData) {
+  const statusItem = document.querySelector('.status-item');
+  if (!statusItem) return;
+
+  const colors = { LOW: 'green', MEDIUM: 'orange', HIGH: 'red' };
+  const labels = { LOW: 'You are Safe', MEDIUM: 'Stay Alert', HIGH: 'High Risk Area!' };
+
+  statusItem.innerHTML = `
+    <span class="status-dot" style="background:${colors[riskData.riskLevel] || 'green'};
+    box-shadow: 0 0 10px ${colors[riskData.riskLevel] || 'green'}"></span>
+    <span>${labels[riskData.riskLevel] || 'You are Safe'}</span>
+  `;
+
+  if (riskData.safetyAdvice) {
+    showNotification(`🤖 AI Safety Tip: ${riskData.safetyAdvice}`);
+  }
+  // Update AI panel
+const aiScore = document.getElementById('aiRiskScore');
+const aiStatus = document.getElementById('aiStatus');
+if (aiScore) {
+  aiScore.textContent = `${riskData.riskScore}/10 - ${riskData.riskLevel}`;
+  aiScore.style.color = riskData.riskLevel === 'HIGH' ? '#e74c3c' : 
+                        riskData.riskLevel === 'MEDIUM' ? 'orange' : '#2ecc71';
+}
+if (aiStatus) {
+  aiStatus.textContent = riskData.aiPowered ? 'Gemini AI Active ✅' : 'AI Active ✅';
+}
+}
+
+// ===== AI CHECK-IN =====
+function startAICheckin() {
+  fetch(`${BACKEND_URL}/api/ai/checkin`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      location: userLocation,
+      userId: getUserId()
+    })
+  })
+  .then(res => res.json())
+  .then(data => {
+    if (data.success && data.requiresResponse) {
+      setTimeout(() => {
+        const isSafe = window.confirm(
+          `🤖 SafeHer AI: ${data.message}\n\nClick OK if you're safe, Cancel to send SOS!`
+        );
+        if (!isSafe) {
+          activateSOS();
+        } else {
+          showNotification('✅ Glad you are safe! 💜');
+        }
+      }, 3000);
+    }
+  })
+  .catch(err => console.log('Checkin error:', err));
+}
+
+// ===== VOICE DISTRESS DETECTION =====
+let recognition = null;
+let isListening = false;
+
+function startVoiceDetection() {
+  if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+    console.log('Speech recognition not supported');
+    return;
+  }
+
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  recognition = new SpeechRecognition();
+  recognition.continuous = true;
+  recognition.interimResults = true;
+  recognition.lang = 'hi-IN';
+
+  recognition.onresult = (event) => {
+    const transcript = Array.from(event.results)
+      .map(result => result[0].transcript)
+      .join(' ');
+
+    // Send to AI for analysis
+    analyzeVoiceDistress(transcript);
+  };
+
+  recognition.onerror = (err) => {
+    console.log('Voice error:', err);
+  };
+
+  recognition.onend = () => {
+    if (isListening) {
+      recognition.start(); // Restart if still listening
+    }
+  };
+
+  recognition.start();
+  isListening = true;
+  showNotification('🎙️ Voice protection active - SafeHer is listening');
+}
+
+function analyzeVoiceDistress(transcript) {
+  if (!transcript || transcript.length < 3) return;
+
+  fetch(`${BACKEND_URL}/api/ai/voice-alert`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      transcript: transcript,
+      location: userLocation,
+      contacts: contacts
+    })
+  })
+  .then(res => res.json())
+  .then(data => {
+    if (data.isDistress && data.confidence > 0.8) {
+      showNotification('🆘 Distress detected! Activating SOS...');
+      activateSOS();
+    }
+  })
+  .catch(err => console.log('Voice analysis error:', err));
+}
+
+// ===== SOS SYSTEM =====
+let sosTimer = null;
+let sosActive = false;
+let currentAlertId = null;
+
 function triggerSOS() {
   if (sosActive) return;
 
-  // Show countdown
   let count = 3;
   showNotification(`🆘 SOS in ${count} seconds... tap again to cancel`);
 
@@ -111,25 +304,64 @@ function triggerSOS() {
 }
 
 function activateSOS() {
+    // Check if offline
+  if (!navigator.onLine) {
+    // Queue SOS for when back online
+    queueOfflineSOS({
+      location: userLocation || { lat: 0, lng: 0 },
+      contacts: contacts,
+      victimName: "SafeHer User",
+      userId: getUserId(),
+      timestamp: new Date().toISOString()
+    });
+    showOfflinePanel();
+    return;
+  }
   sosActive = true;
   document.getElementById('sosOverlay').classList.add('active');
 
-  // Save SOS to Firebase
-  const sosData = {
+  // Send to backend - triggers REAL phone calls!
+  fetch(`${BACKEND_URL}/api/sos`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      location: userLocation || { lat: 0, lng: 0 },
+      contacts: contacts,
+      victimName: "SafeHer User",
+      userId: getUserId()
+    })
+  })
+  .then(res => res.json())
+  .then(data => {
+    currentAlertId = data.alertId;
+    document.getElementById('sosStatus').textContent = data.message;
+  })
+  .catch(err => console.error('SOS Error:', err));
+
+  // Save to Firebase
+  db.ref('sos_alerts').push({
     timestamp: new Date().toISOString(),
     location: userLocation || { lat: 0, lng: 0 },
     contacts: contacts,
     status: 'ACTIVE'
-  };
+  });
+    // Save live location for tracking
+  db.ref('live_location').set({
+    lat: userLocation ? userLocation.lat : 0,
+    lng: userLocation ? userLocation.lng : 0,
+    timestamp: new Date().toISOString()
+  });
 
-  db.ref('sos_alerts').push(sosData);
+  // Show tracking link
+  const trackingUrl = `https://safeher-28bb2.web.app/track.html`;
+  showNotification(`📍 Live tracking: ${trackingUrl}`);
 
   // Update status messages
   let step = 0;
   const messages = [
     '📍 Getting your location...',
-    '📱 Alerting your trusted circle...',
-    '💬 Sending emergency SMS...',
+    '📞 Calling your trusted circle...',
+    '💬 Sending emergency SMS with location...',
     '✅ All contacts notified! Help is on the way!'
   ];
 
@@ -150,7 +382,14 @@ function cancelSOS() {
   document.getElementById('sosOverlay').classList.remove('active');
   showNotification('SOS Cancelled - Stay Safe! 💜');
 
-  // Update Firebase
+  if (currentAlertId) {
+    fetch(`${BACKEND_URL}/api/sos/cancel`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ alertId: currentAlertId })
+    });
+  }
+
   db.ref('sos_alerts').limitToLast(1).once('value', (snapshot) => {
     snapshot.forEach((child) => {
       db.ref(`sos_alerts/${child.key}`).update({ status: 'CANCELLED' });
@@ -174,6 +413,7 @@ window.addEventListener('devicemotion', (e) => {
     if (deltaX + deltaY + deltaZ > shakeThreshold) {
       if (!sosActive) {
         showNotification('📳 Shake detected! Tap SOS to confirm');
+        triggerSOS();
       }
     }
   }
@@ -183,9 +423,48 @@ window.addEventListener('devicemotion', (e) => {
   lastZ = acc.z;
 });
 
+// ===== SILENT DECOY SCREEN =====
+function activateSilentMode() {
+  // Show fake calculator screen
+  const decoy = document.createElement('div');
+  decoy.id = 'decoyScreen';
+  decoy.style.cssText = `
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    background: #1a1a1a;
+    z-index: 99999;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    font-family: Arial, sans-serif;
+  `;
+  decoy.innerHTML = `
+    <div style="color:white;font-size:48px;margin-bottom:20px;">🧮</div>
+    <div style="color:white;font-size:24px;">Calculator</div>
+    <div style="color:rgba(255,255,255,0.5);font-size:14px;margin-top:10px;">
+      Triple tap to exit
+    </div>
+  `;
+
+  let tapCount = 0;
+  decoy.addEventListener('click', () => {
+    tapCount++;
+    if (tapCount >= 3) {
+      decoy.remove();
+    }
+  });
+
+  document.body.appendChild(decoy);
+
+  // Secretly activate SOS
+  activateSOS();
+  showNotification('🤫 Silent mode activated');
+}
+
 // ===== NOTIFICATION SYSTEM =====
 function showNotification(message) {
-  // Remove existing notification
   const existing = document.querySelector('.notification');
   if (existing) existing.remove();
 
@@ -203,43 +482,90 @@ function showNotification(message) {
     border-radius: 25px;
     font-size: 14px;
     z-index: 10000;
-    animation: slideUp 0.3s ease;
     max-width: 90%;
     text-align: center;
   `;
   document.body.appendChild(notif);
-  setTimeout(() => notif.remove(), 3000);
-}
-
-// ===== AI CHECK-IN SYSTEM =====
-function startAICheckin() {
-  // Simulate AI routine check
-  const hour = new Date().getHours();
-  const isNight = hour >= 21 || hour <= 5;
-
-  if (isNight) {
-    setTimeout(() => {
-      const confirm = window.confirm(
-        '🤖 SafeHer AI: It\'s late night. Are you safe? Click OK if you\'re safe, Cancel to send SOS!'
-      );
-      if (!confirm) {
-        activateSOS();
-      } else {
-        showNotification('✅ Glad you\'re safe! Goodnight 💜');
-      }
-    }, 5000);
-  }
+  setTimeout(() => notif.remove(), 4000);
 }
 
 // ===== INITIALIZE =====
 document.addEventListener('DOMContentLoaded', () => {
   renderContacts();
-  startAICheckin();
-  showNotification('🛡️ SafeHer is protecting you!');
+  updateContactsStatus();
+  updateOnlineStatus(); 
+  showNotification('🛡️ SafeHer AI is protecting you!');
 
-  // Update contacts count in status bar
-  const statusItems = document.querySelectorAll('.status-item');
-  if (statusItems[2]) {
-    statusItems[2].innerHTML = `👥 ${contacts.length} Contacts Ready`;
+  // Start AI risk scoring every 5 minutes
+  setInterval(getAIRiskScore, 300000);
+
+  // Start voice detection
+  startVoiceDetection();
+
+  // Start AI checkin every 30 minutes
+  setInterval(startAICheckin, 1800000);
+});
+// ===== PWA SERVICE WORKER =====
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js')
+      .then((registration) => {
+        console.log('SafeHer SW registered:', registration);
+        showNotification('📱 SafeHer installed! Works offline too!');
+      })
+      .catch((error) => {
+        console.log('SW registration failed:', error);
+      });
+  });
+}
+
+// ===== OFFLINE SOS QUEUE =====
+async function queueOfflineSOS(sosData) {
+  if ('serviceWorker' in navigator && 'SyncManager' in window) {
+    const cache = await caches.open('safeher-sos-queue');
+    await cache.put(
+      new Request(`/sos-queue-${Date.now()}`),
+      new Response(JSON.stringify(sosData))
+    );
+
+    const registration = await navigator.serviceWorker.ready;
+    await registration.sync.register('sos-sync');
+    showNotification('📵 SOS queued! Will send when online');
+  }
+}
+
+// ===== ENHANCED OFFLINE DETECTION =====
+window.addEventListener('online', () => {
+  showNotification('✅ Back online! Full protection restored 💜');
+  document.getElementById('offlinePanel')?.classList.add('hidden');
+
+  // Sync any queued SOS alerts
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.ready.then(reg => {
+      reg.sync.register('sos-sync');
+    });
   }
 });
+
+window.addEventListener('offline', () => {
+  showNotification('📵 Offline mode activated! Emergency features ready');
+  showOfflinePanel();
+});
+// ===== OFFLINE PANEL FUNCTIONS =====
+function showOfflinePanel() {
+  const panel = document.getElementById('offlinePanel');
+  if (panel) panel.classList.remove('hidden');
+}
+
+function dismissOfflinePanel() {
+  const panel = document.getElementById('offlinePanel');
+  if (panel) panel.classList.add('hidden');
+}
+
+function updateOnlineStatus() {
+  if (!navigator.onLine) {
+    showOfflinePanel();
+  } else {
+    dismissOfflinePanel();
+  }
+}

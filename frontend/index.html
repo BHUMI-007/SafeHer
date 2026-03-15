@@ -6,6 +6,11 @@
   <title>SafeHer - Your Safety Companion</title>
   <link rel="stylesheet" href="style.css">
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap" rel="stylesheet">
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#9b59b6">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black">
+  <meta name="apple-mobile-web-app-title" content="SafeHer">
 </head>
 <body>
 
@@ -28,6 +33,9 @@
         🆘 SOS EMERGENCY
       </button>
       <p class="sos-hint">Hold for 3 seconds to activate</p>
+      <button class="silent-btn" onclick="activateSilentMode()">
+        🤫 Silent Mode
+      </button>
     </div>
     <div class="status-bar">
       <div class="status-item">
@@ -41,6 +49,21 @@
         <span>👥 3 Contacts Ready</span>
       </div>
     </div>
+    <!-- AI RISK PANEL -->
+<div class="ai-panel" id="aiPanel">
+  <div class="ai-item">
+    <span>🤖 AI Risk Score:</span>
+    <span id="aiRiskScore">Analyzing...</span>
+  </div>
+  <div class="ai-item">
+    <span>🧠 AI Status:</span>
+    <span id="aiStatus">Gemini AI Active</span>
+  </div>
+  <div class="ai-item">
+    <span>🎙️ Voice Guard:</span>
+    <span id="voiceStatus">Listening...</span>
+  </div>
+</div>
   </section>
 
   <!-- FEATURES SECTION -->
@@ -105,6 +128,21 @@
       <p>Alerting your trusted circle...</p>
       <p id="sosStatus">Sending location to contacts...</p>
       <button onclick="cancelSOS()">Cancel SOS</button>
+    </div>
+  </div>
+    <!-- Offline Panel -->
+  <div id="offlinePanel" class="offline-panel hidden">
+    <div class="offline-content">
+      <h2>📵 You're Offline</h2>
+      <p>Don't worry — emergency features still work!</p>
+      <ul>
+        <li>✅ SOS button works</li>
+        <li>✅ Trusted contacts saved</li>
+        <li>✅ Last known location saved</li>
+        <li>❌ Live tracking paused</li>
+        <li>❌ AI features paused</li>
+      </ul>
+      <button onclick="dismissOfflinePanel()">Got it</button>
     </div>
   </div>
 
