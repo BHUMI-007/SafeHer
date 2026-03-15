@@ -752,6 +752,16 @@ document.addEventListener('DOMContentLoaded', () => {
     window.location.href = 'login.html';
     return;
   }
+  function logout() {
+  if (confirm('Logout karna chahte ho?')) {
+    localStorage.clear();
+    firebase.auth().signOut().then(() => {
+      window.location.href = 'login.html';
+    }).catch(() => {
+      window.location.href = 'login.html';
+    });
+  }
+  }
 
   // Show username in navbar
   if (userName) {
