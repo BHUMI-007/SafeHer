@@ -124,6 +124,16 @@ function updateLocationStatus() {
 // ===== MOVEMENT TRACKING =====
 function trackMovement() {
   if (!userLocation) return;
+
+  // Save to Firebase for live tracking
+  db.ref('live_location').set({
+    lat: userLocation.lat,
+    lng: userLocation.lng,
+    timestamp: new Date().toISOString(),
+    userId: getUserId()
+  });
+
+  // Send to backend
   fetch(`${BACKEND_URL}/api/movement/track`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -139,6 +149,27 @@ function trackMovement() {
     }
   })
   .catch(err => console.log('Tracking error:', err));
+}
+
+// ===== LIVE LOCATION UPDATE EVERY 30 SECONDS =====
+function startLiveTracking() {
+  // Update immediately
+  trackMovement();
+
+  // Then every 30 seconds
+  setInterval(() => {
+    if (userLocation) {
+      trackMovement();
+
+      // Update location status
+      const items = document.querySelectorAll('.status-item');
+      if (items[1]) {
+        items[1].innerHTML = `📍 Updated: ${new Date().toLocaleTimeString()}`;
+      }
+
+      console.log('📍 Location updated:', userLocation);
+    }
+  }, 30000);
 }
 
 // ===== AI RISK SCORING =====
@@ -558,6 +589,7 @@ function startVoiceDetection() {
   if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
     console.log('Speech recognition not supported');
     return;
+    
   }
 
   const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -726,6 +758,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Start voice detection
   startVoiceDetection();
+
+  // Start live tracking
+  startLiveTracking();
 
   // Start AI checkin every 30 minutes
   setInterval(startAICheckin, 1800000);
