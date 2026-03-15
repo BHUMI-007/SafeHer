@@ -675,28 +675,6 @@ function analyzeVoiceDistress(transcript) {
 }
 
 
-window.addEventListener('devicemotion', (e) => {
-  const acc = e.accelerationIncludingGravity;
-  if (!acc) return;
-
-  if (lastX !== undefined) {
-    const deltaX = Math.abs(acc.x - lastX);
-    const deltaY = Math.abs(acc.y - lastY);
-    const deltaZ = Math.abs(acc.z - lastZ);
-
-    if (deltaX + deltaY + deltaZ > shakeThreshold) {
-      if (!sosActive) {
-        showNotification('📳 Shake detected! Tap SOS to confirm');
-        triggerSOS();
-      }
-    }
-  }
-
-  lastX = acc.x;
-  lastY = acc.y;
-  lastZ = acc.z;
-});
-
 // ===== SILENT DECOY SCREEN =====
 function activateSilentMode() {
   // Show fake calculator screen
