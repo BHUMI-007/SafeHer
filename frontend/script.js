@@ -1,13 +1,8 @@
-// ===== CHECK LOGIN =====
-firebase.auth().onAuthStateChanged((user) => {
-  if (!user) {
-    // Not logged in - redirect to login
-    window.location.href = 'login.html';
-  } else {
-    // Logged in - load user data
-    loadUserFromFirebase(user.uid);
-  }
-});
+
+// Simple login check
+if (!localStorage.getItem('safeher_user_id')) {
+  window.location.href = 'login.html';
+}
 
 async function loadUserFromFirebase(uid) {
   try {

@@ -198,9 +198,9 @@
 
     // If already logged in → go to app
     auth.onAuthStateChanged((user) => {
-      if (user && otpSent) {
+    if (user && localStorage.getItem('safeher_user_id')) {
         window.location.href = 'index.html';
-      }
+    }
     });
 
     function initRecaptcha() {
