@@ -1,3 +1,32 @@
+// ===== CHECK LOGIN =====
+firebase.auth().onAuthStateChanged((user) => {
+  if (!user) {
+    // Not logged in - redirect to login
+    window.location.href = 'login.html';
+  } else {
+    // Logged in - load user data
+    loadUserFromFirebase(user.uid);
+  }
+});
+
+async function loadUserFromFirebase(uid) {
+  try {
+    const snapshot = await firebase.database()
+      .ref(`users/${uid}`).once('value');
+    if (snapshot.exists()) {
+      const profile = snapshot.val();
+      if (profile.contacts) {
+        contacts = profile.contacts;
+        localStorage.setItem('safeher_contacts',
+          JSON.stringify(contacts));
+        renderContacts();
+        updateContactsStatus();
+      }
+    }
+  } catch(err) {
+    console.log('Error loading profile:', err);
+  }
+}
 // Firebase Configuration
 const firebaseConfig = {
   apiKey: "AIzaSyC_cFOpL7irYXrK27ImvlV2YTNQDifPYqM",
