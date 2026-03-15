@@ -17,22 +17,9 @@
       justify-content: center;
       padding: 20px;
     }
-    .logo {
-      font-size: 48px;
-      margin-bottom: 10px;
-    }
-    .title {
-      font-size: 32px;
-      font-weight: 700;
-      color: #9b59b6;
-      margin-bottom: 5px;
-    }
-    .subtitle {
-      font-size: 14px;
-      color: rgba(255,255,255,0.5);
-      margin-bottom: 40px;
-      text-align: center;
-    }
+    .logo { font-size: 48px; margin-bottom: 10px; }
+    .title { font-size: 32px; font-weight: 700; color: #9b59b6; margin-bottom: 5px; }
+    .subtitle { font-size: 14px; color: rgba(255,255,255,0.5); margin-bottom: 40px; text-align: center; }
     .login-card {
       background: rgba(255,255,255,0.05);
       border: 1px solid rgba(255,255,255,0.1);
@@ -43,15 +30,8 @@
     }
     .step { display: none; }
     .step.active { display: block; }
-    .input-group {
-      margin-bottom: 20px;
-    }
-    .input-group label {
-      display: block;
-      font-size: 13px;
-      color: rgba(255,255,255,0.6);
-      margin-bottom: 8px;
-    }
+    .input-group { margin-bottom: 20px; }
+    .input-group label { display: block; font-size: 13px; color: rgba(255,255,255,0.6); margin-bottom: 8px; }
     .input-group input {
       width: 100%;
       background: rgba(255,255,255,0.05);
@@ -62,68 +42,44 @@
       font-size: 16px;
       outline: none;
     }
-    .input-group input:focus {
-      border-color: #9b59b6;
-    }
-    .btn {
-      width: 100%;
-      padding: 15px;
-      border: none;
-      border-radius: 10px;
-      font-size: 16px;
-      font-weight: 600;
-      cursor: pointer;
-      transition: all 0.3s;
-    }
-    .btn-primary {
-      background: #9b59b6;
-      color: white;
-    }
+    .input-group input:focus { border-color: #9b59b6; }
+    .btn { width: 100%; padding: 15px; border: none; border-radius: 10px; font-size: 16px; font-weight: 600; cursor: pointer; transition: all 0.3s; }
+    .btn-primary { background: #9b59b6; color: white; }
     .btn-primary:hover { background: #8e44ad; }
-    .btn-secondary {
-      background: rgba(255,255,255,0.1);
+    .btn-secondary { background: rgba(255,255,255,0.1); color: white; margin-top: 10px; }
+    .error { color: #e74c3c; font-size: 13px; margin-top: 10px; text-align: center; }
+    .success { color: #2ecc71; font-size: 13px; margin-top: 10px; text-align: center; }
+    #recaptcha-container { margin: 15px 0; }
+
+    /* FIXED phone input */
+    .phone-input { display: flex; gap: 10px; align-items: stretch; }
+    .country-code-label {
+      background: rgba(255,255,255,0.08);
+      border: 1px solid rgba(255,255,255,0.2);
+      border-radius: 10px;
+      padding: 15px;
       color: white;
-      margin-top: 10px;
-    }
-    .error {
-      color: #e74c3c;
-      font-size: 13px;
-      margin-top: 10px;
-      text-align: center;
-    }
-    .success {
-      color: #2ecc71;
-      font-size: 13px;
-      margin-top: 10px;
-      text-align: center;
-    }
-    #recaptcha-container {
-      margin: 15px 0;
-    }
-    .phone-input {
+      font-size: 16px;
+      white-space: nowrap;
       display: flex;
-      gap: 10px;
+      align-items: center;
     }
-    .country-code {
+    #phoneNumber {
+      flex: 1;
+      width: 0;
+      min-width: 0;
       background: rgba(255,255,255,0.05);
       border: 1px solid rgba(255,255,255,0.2);
       border-radius: 10px;
       padding: 15px;
       color: white;
       font-size: 16px;
-      width: 80px;
+      outline: none;
     }
-    .loading {
-      text-align: center;
-      padding: 20px;
-      color: rgba(255,255,255,0.6);
-    }
-    .otp-inputs {
-      display: flex;
-      gap: 10px;
-      justify-content: center;
-      margin: 20px 0;
-    }
+    #phoneNumber:focus { border-color: #9b59b6; }
+
+    .loading { text-align: center; padding: 20px; color: rgba(255,255,255,0.6); }
+    .otp-inputs { display: flex; gap: 8px; justify-content: center; margin: 20px 0; }
     .otp-input {
       width: 45px;
       height: 55px;
@@ -152,15 +108,12 @@
       <div class="input-group">
         <label>Phone Number</label>
         <div class="phone-input">
-          <input type="text" class="country-code" value="+91" id="countryCode" readonly/>
-            <input type="tel" id="phoneNumber" placeholder="9999999999"
-            maxlength="10" style="flex:1; min-width:200px; padding:15px; font-size:16px; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.2); border-radius:10px; color:white; outline:none;"/>        
+          <span class="country-code-label">+91</span>
+          <input type="tel" id="phoneNumber" placeholder="9999999999" maxlength="10" inputmode="numeric"/>
         </div>
       </div>
       <div id="recaptcha-container"></div>
-      <button class="btn btn-primary" onclick="sendOTP()">
-        Send OTP 📱
-      </button>
+      <button class="btn btn-primary" onclick="sendOTP()">Send OTP 📱</button>
       <div id="step1Error" class="error"></div>
     </div>
 
@@ -171,25 +124,15 @@
         OTP sent to <span id="phoneDisplay"></span>
       </p>
       <div class="otp-inputs">
-        <input type="number" class="otp-input" id="otp1" maxlength="1"
-          oninput="moveToNext(this, 'otp2')"/>
-        <input type="number" class="otp-input" id="otp2" maxlength="1"
-          oninput="moveToNext(this, 'otp3')"/>
-        <input type="number" class="otp-input" id="otp3" maxlength="1"
-          oninput="moveToNext(this, 'otp4')"/>
-        <input type="number" class="otp-input" id="otp4" maxlength="1"
-          oninput="moveToNext(this, 'otp5')"/>
-        <input type="number" class="otp-input" id="otp5" maxlength="1"
-          oninput="moveToNext(this, 'otp6')"/>
-        <input type="number" class="otp-input" id="otp6" maxlength="1"
-          oninput="verifyOTP()"/>
+        <input type="text" class="otp-input" id="otp1" maxlength="1" inputmode="numeric" oninput="moveToNext(this,'otp2')"/>
+        <input type="text" class="otp-input" id="otp2" maxlength="1" inputmode="numeric" oninput="moveToNext(this,'otp3')"/>
+        <input type="text" class="otp-input" id="otp3" maxlength="1" inputmode="numeric" oninput="moveToNext(this,'otp4')"/>
+        <input type="text" class="otp-input" id="otp4" maxlength="1" inputmode="numeric" oninput="moveToNext(this,'otp5')"/>
+        <input type="text" class="otp-input" id="otp5" maxlength="1" inputmode="numeric" oninput="moveToNext(this,'otp6')"/>
+        <input type="text" class="otp-input" id="otp6" maxlength="1" inputmode="numeric" oninput="autoVerify()"/>
       </div>
-      <button class="btn btn-primary" onclick="verifyOTP()">
-        Verify & Login ✅
-      </button>
-      <button class="btn btn-secondary" onclick="resendOTP()">
-        Resend OTP
-      </button>
+      <button class="btn btn-primary" onclick="verifyOTP()">Verify & Login ✅</button>
+      <button class="btn btn-secondary" onclick="resendOTP()">Resend OTP</button>
       <div id="step2Error" class="error"></div>
     </div>
 
@@ -209,16 +152,14 @@
         <input type="tel" id="contact1Phone" placeholder="+919876543210"/>
       </div>
       <div class="input-group">
-        <label>Emergency Contact 2 Name</label>
+        <label>Emergency Contact 2 Name (Optional)</label>
         <input type="text" id="contact2Name" placeholder="Dad"/>
       </div>
       <div class="input-group">
-        <label>Emergency Contact 2 Phone</label>
+        <label>Emergency Contact 2 Phone (Optional)</label>
         <input type="tel" id="contact2Phone" placeholder="+919876543210"/>
       </div>
-      <button class="btn btn-primary" onclick="saveProfile()">
-        Save & Start 🛡️
-      </button>
+      <button class="btn btn-primary" onclick="saveProfile()">Save & Start 🛡️</button>
       <div id="step3Error" class="error"></div>
     </div>
 
@@ -227,9 +168,7 @@
       <div class="loading">
         <div style="font-size:48px;margin-bottom:20px;">🛡️</div>
         <div style="font-size:18px;margin-bottom:10px;">Setting up SafeHer...</div>
-        <div style="color:rgba(255,255,255,0.5);font-size:14px;">
-          Please wait...
-        </div>
+        <div style="color:rgba(255,255,255,0.5);font-size:14px;">Please wait...</div>
       </div>
     </div>
 
@@ -239,7 +178,6 @@
   <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-database-compat.js"></script>
   <script>
-    // Firebase config
     const firebaseConfig = {
       apiKey: "AIzaSyC_cFOpL7irYXrK27ImvlV2YTNQDifPYqM",
       authDomain: "safeher-28bb2.firebaseapp.com",
@@ -256,189 +194,165 @@
 
     let confirmationResult = null;
     let recaptchaVerifier = null;
+    let otpSent = false;
 
-    // Check if already logged in
+    // If already logged in → go to app
     auth.onAuthStateChanged((user) => {
-      if (user) {
-        // Already logged in, redirect to app
+      if (user && otpSent) {
         window.location.href = 'index.html';
       }
     });
 
-    // Initialize reCAPTCHA
     function initRecaptcha() {
-      recaptchaVerifier = new firebase.auth.RecaptchaVerifier(
-        'recaptcha-container',
-        {
-          size: 'normal',
-          callback: () => {
-            console.log('reCAPTCHA solved');
-          }
-        }
-      );
+      if (recaptchaVerifier) return;
+      recaptchaVerifier = new firebase.auth.RecaptchaVerifier('recaptcha-container', {
+        size: 'normal',
+        callback: () => console.log('reCAPTCHA solved')
+      });
       recaptchaVerifier.render();
     }
 
-    // Send OTP
     async function sendOTP() {
-    const phoneRaw = document.getElementById('phoneNumber').value.toString().trim();
-    const phoneInput = phoneRaw.replace(/^\+91/, '').replace(/\D/g, '');
+      const raw = document.getElementById('phoneNumber').value;
+      const digits = raw.replace(/\D/g, '');
+      const fullPhone = '+91' + digits;
+      const errorEl = document.getElementById('step1Error');
 
-    const code = document.getElementById('countryCode').value.trim();
-    
-    // Remove everything except digits
-    const cleanPhone = phoneInput.split('').filter(c => c >= '0' && c <= '9').join('');
-    const fullPhone = code + cleanPhone;
-    const errorEl = document.getElementById('step1Error');
-
-    console.log('Phone:', fullPhone, 'Length:', cleanPhone.length);
-
-    if (cleanPhone.length !== 10) {
-        errorEl.textContent = '⚠️ Please enter exactly 10 digits. Got: ' + cleanPhone.length;
-        errorEl.style.color = '#e74c3c';
+      if (digits.length !== 10) {
+        errorEl.textContent = '⚠️ Enter exactly 10 digits. Got: ' + digits.length;
         return;
-    }
+      }
 
-    errorEl.textContent = 'Sending OTP...';
-    errorEl.style.color = '#2ecc71';
+      errorEl.textContent = 'Sending OTP...';
+      errorEl.style.color = '#2ecc71';
 
-    try {
+      try {
         if (!recaptchaVerifier) initRecaptcha();
-
-        confirmationResult = await auth.signInWithPhoneNumber(
-        fullPhone,
-        recaptchaVerifier
-        );
+        confirmationResult = await auth.signInWithPhoneNumber(fullPhone, recaptchaVerifier);
+        otpSent = true;
 
         document.getElementById('step1').classList.remove('active');
         document.getElementById('step2').classList.add('active');
         document.getElementById('phoneDisplay').textContent = fullPhone;
         document.getElementById('otp1').focus();
 
-    } catch(err) {
-        console.error('OTP Error:', err);
+      } catch(err) {
+        console.error(err);
         errorEl.textContent = '⚠️ ' + err.message;
         errorEl.style.color = '#e74c3c';
-        
-        // Reset recaptcha on error
         if (recaptchaVerifier) {
-        recaptchaVerifier.clear();
-        recaptchaVerifier = null;
-        document.getElementById('recaptcha-container').innerHTML = '';
-        setTimeout(initRecaptcha, 500);
+          recaptchaVerifier.clear();
+          recaptchaVerifier = null;
+          document.getElementById('recaptcha-container').innerHTML = '';
+          setTimeout(initRecaptcha, 500);
         }
-    }
-}
-
-    // Move to next OTP input
-    function moveToNext(current, nextId) {
-      if (current.value.length >= 1) {
-        const next = document.getElementById(nextId);
-        if (next) next.focus();
       }
     }
 
-    // Verify OTP
+    function moveToNext(current, nextId) {
+      if (current.value.length >= 1) {
+        document.getElementById(nextId)?.focus();
+      }
+    }
+
+    function autoVerify() {
+      const otp = ['otp1','otp2','otp3','otp4','otp5','otp6']
+        .map(id => document.getElementById(id).value).join('');
+      if (otp.length === 6) verifyOTP();
+    }
+
     async function verifyOTP() {
       const otp = ['otp1','otp2','otp3','otp4','otp5','otp6']
-        .map(id => document.getElementById(id).value)
-        .join('');
-
+        .map(id => document.getElementById(id).value).join('');
       const errorEl = document.getElementById('step2Error');
 
       if (otp.length !== 6) {
-        errorEl.textContent = '⚠️ Please enter complete 6-digit OTP';
+        errorEl.textContent = '⚠️ Enter complete 6-digit OTP';
         return;
       }
 
-      try {
-        await confirmationResult.confirm(otp);
+      errorEl.textContent = 'Verifying...';
+      errorEl.style.color = '#2ecc71';
 
-        // Check if profile exists
-        const user = auth.currentUser;
+      try {
+        const result = await confirmationResult.confirm(otp);
+        const user = result.user;
         const snapshot = await db.ref(`users/${user.uid}`).once('value');
 
         if (snapshot.exists()) {
-          // Load existing profile and redirect
           const profile = snapshot.val();
           localStorage.setItem('safeher_user_id', user.uid);
           localStorage.setItem('safeher_user_name', profile.name);
           if (profile.contacts) {
-            localStorage.setItem('safeher_contacts',
-              JSON.stringify(profile.contacts));
+            localStorage.setItem('safeher_contacts', JSON.stringify(profile.contacts));
           }
           window.location.href = 'index.html';
         } else {
-          // New user - show profile setup
           document.getElementById('step2').classList.remove('active');
           document.getElementById('step3').classList.add('active');
         }
 
       } catch(err) {
-        errorEl.textContent = '⚠️ Invalid OTP. Please try again.';
+        console.error(err);
+        if (err.code === 'auth/invalid-verification-code') {
+          errorEl.textContent = '⚠️ Wrong OTP! Try again.';
+        } else if (err.code === 'auth/code-expired') {
+          errorEl.textContent = '⚠️ OTP expired! Resend karo.';
+        } else {
+          errorEl.textContent = '⚠️ ' + err.message;
+        }
+        errorEl.style.color = '#e74c3c';
       }
     }
 
-    // Resend OTP
     function resendOTP() {
-      document.getElementById('step2').classList.remove('active');
-      document.getElementById('step1').classList.add('active');
+      otpSent = false;
       recaptchaVerifier = null;
       document.getElementById('recaptcha-container').innerHTML = '';
+      document.getElementById('step2').classList.remove('active');
+      document.getElementById('step1').classList.add('active');
+      setTimeout(initRecaptcha, 500);
     }
 
-    // Save Profile
     async function saveProfile() {
-      const name = document.getElementById('userName').value;
-      const c1Name = document.getElementById('contact1Name').value;
-      const c1Phone = document.getElementById('contact1Phone').value;
-      const c2Name = document.getElementById('contact2Name').value;
-      const c2Phone = document.getElementById('contact2Phone').value;
+      const name = document.getElementById('userName').value.trim();
+      const c1Name = document.getElementById('contact1Name').value.trim();
+      const c1Phone = document.getElementById('contact1Phone').value.trim();
+      const c2Name = document.getElementById('contact2Name').value.trim();
+      const c2Phone = document.getElementById('contact2Phone').value.trim();
       const errorEl = document.getElementById('step3Error');
 
       if (!name || !c1Name || !c1Phone) {
-        errorEl.textContent = '⚠️ Please fill required fields';
+        errorEl.textContent = '⚠️ Name aur Contact 1 required hai!';
         return;
       }
 
-      // Show loading
       document.getElementById('step3').classList.remove('active');
       document.getElementById('step4').classList.add('active');
 
       try {
         const user = auth.currentUser;
         const contacts = [];
-
         if (c1Name && c1Phone) contacts.push({ name: c1Name, phone: c1Phone });
         if (c2Name && c2Phone) contacts.push({ name: c2Name, phone: c2Phone });
 
-        // Save to Firebase
         await db.ref(`users/${user.uid}`).set({
-          name: name,
-          phone: user.phoneNumber,
-          contacts: contacts,
-          createdAt: new Date().toISOString()
+          name, phone: user.phoneNumber,
+          contacts, createdAt: new Date().toISOString()
         });
 
-        // Save to localStorage
         localStorage.setItem('safeher_user_id', user.uid);
         localStorage.setItem('safeher_user_name', name);
         localStorage.setItem('safeher_contacts', JSON.stringify(contacts));
 
-        // Redirect to app
-        setTimeout(() => {
-          window.location.href = 'index.html';
-        }, 1500);
+        setTimeout(() => { window.location.href = 'index.html'; }, 1500);
 
       } catch(err) {
-        errorEl.textContent = '⚠️ Error saving profile: ' + err.message;
+        errorEl.textContent = '⚠️ Error: ' + err.message;
       }
     }
 
-    // Initialize recaptcha on load
-    window.onload = () => {
-      setTimeout(initRecaptcha, 1000);
-    };
+    window.onload = () => setTimeout(initRecaptcha, 1000);
   </script>
 </body>
 </html>
