@@ -1,6 +1,16 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+  <script>
+  // Check login before page loads
+  window.onload = function() {
+    setTimeout(function() {
+      if (!localStorage.getItem('safeher_user_id')) {
+        window.location.href = 'login.html';
+      }
+    }, 2000);
+  }
+  </script>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>SafeHer - Your Safety Companion</title>
