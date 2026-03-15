@@ -743,15 +743,17 @@ function showNotification(message) {
 
 // ===== INITIALIZE =====
 document.addEventListener('DOMContentLoaded', () => {
-  // Login check
   const userId = localStorage.getItem('safeher_user_id');
-  if (!userId) {
+  const userName = localStorage.getItem('safeher_user_name');
+  
+  // Valid login check - both must exist
+  if (!userId || !userName) {
+    localStorage.clear(); // Clean any partial data
     window.location.href = 'login.html';
     return;
   }
 
   // Show username in navbar
-  const userName = localStorage.getItem('safeher_user_name');
   if (userName) {
     const logo = document.querySelector('.logo');
     if (logo) logo.textContent = `🛡️ Hi, ${userName}!`;
