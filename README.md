@@ -53,7 +53,22 @@ SafeHer is an AI-powered Progressive Web App (PWA) designed to keep women safe. 
 | Hosting | Firebase Hosting + Render.com |
 
 ---
+## 📜 Open Source Compliance
 
+This project is licensed under the **MIT License** — free to use, modify and distribute.
+
+### Open Source Tools Used:
+- **Flask** — MIT License
+- **Firebase SDK** — Apache 2.0
+- **Twilio SDK** — MIT License
+- **Google Generative AI** — Apache 2.0
+- **Flask-CORS** — MIT License
+
+### Contributing:
+We welcome community contributions! Feel free to:
+- Report bugs via Issues
+- Submit Pull Requests
+- Fork and build upon SafeHer
 ## 📁 Project Structure
 ```
 SafeHer/
