@@ -755,16 +755,14 @@ document.addEventListener('DOMContentLoaded', () => {
   function logout() {
   if (confirm('Logout karna chahte ho?')) {
     localStorage.clear();
-    firebase.auth().signOut().then(() => {
-      window.location.href = 'login.html';
-    }).catch(() => {
-      window.location.href = 'login.html';
-    });
+    sessionStorage.clear();
+    window.location.replace('login.html');
+  }
   }
   }
 
   // Show username in navbar
-  if (userName) {
+  if(userName) {
     const logo = document.querySelector('.logo');
     if (logo) logo.textContent = `🛡️ Hi, ${userName}!`;
   }
