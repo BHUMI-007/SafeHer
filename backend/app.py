@@ -82,7 +82,7 @@ def make_emergency_call(to_number, victim_name, location):
         )
 
         sms = twilio_client.messages.create(
-            body=f"🆘 EMERGENCY ALERT!\n{victim_name} needs help!\n📍 Location: {maps_url}\nTrack live: https://safeher-28bb2.web.app/track.html\nCall her immediately or dial 112!",
+            body=f"SOS! {victim_name} needs help! Location: {maps_url}",
             from_=TWILIO_PHONE_NUMBER,
             to=to_number
         )
