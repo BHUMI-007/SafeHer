@@ -300,7 +300,7 @@
         }).addTo(map);
 
         // Send to backend
-        fetch('http://127.0.0.1:8000/api/danger-zones/report', {
+        fetch('https://safeher-0x4u.onrender.com/api/danger-zones/report', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
