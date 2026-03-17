@@ -1,21 +1,3 @@
-async function loadUserFromFirebase(uid) {
-  try {
-    const snapshot = await firebase.database()
-      .ref(`users/${uid}`).once('value');
-    if (snapshot.exists()) {
-      const profile = snapshot.val();
-      if (profile.contacts) {
-        contacts = profile.contacts;
-        localStorage.setItem('safeher_contacts',
-          JSON.stringify(contacts));
-        renderContacts();
-        updateContactsStatus();
-      }
-    }
-  } catch(err) {
-    console.log('Error loading profile:', err);
-  }
-}
 // Firebase Configuration
 const firebaseConfig = {
   apiKey: "AIzaSyC_cFOpL7irYXrK27ImvlV2YTNQDifPYqM",
@@ -27,23 +9,17 @@ const firebaseConfig = {
   appId: "1:1093714755282:web:2095969d84ec69d088770b"
 };
 
-// Initialize Firebase
 firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
 
-// Backend URL
 const BACKEND_URL = 'https://safeher-0x4u.onrender.com';
 
-
 // ===== CONTACTS SYSTEM =====
-let contacts = JSON.parse(localStorage.getItem('safeher_contacts')) || [
-  { name: "Mom", phone: "+91XXXXXXXXXX" },
-  { name: "Dad", phone: "+91XXXXXXXXXX" },
-  { name: "Best Friend", phone: "+91XXXXXXXXXX" }
-];
+let contacts = JSON.parse(localStorage.getItem('safeher_contacts')) || [];
 
 function renderContacts() {
   const list = document.getElementById('contactsList');
+  if (!list) return;
   list.innerHTML = '';
   contacts.forEach((contact, index) => {
     list.innerHTML += `
@@ -68,8 +44,9 @@ function hideModal() {
 
 function addContact() {
   const name = document.getElementById('contactName').value;
-  const phone = document.getElementById('contactPhone').value;
+  let phone = document.getElementById('contactPhone').value;
   if (name && phone) {
+    if (!phone.startsWith('+')) phone = '+91' + phone;
     contacts.push({ name, phone });
     localStorage.setItem('safeher_contacts', JSON.stringify(contacts));
     renderContacts();
@@ -77,14 +54,11 @@ function addContact() {
     document.getElementById('contactName').value = '';
     document.getElementById('contactPhone').value = '';
     showNotification('✅ Contact added successfully!');
-
-    // Save to backend
     fetch(`${BACKEND_URL}/api/contacts`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ userId: getUserId(), contacts })
     });
-
     updateContactsStatus();
   } else {
     showNotification('⚠️ Please fill all fields!');
@@ -115,15 +89,39 @@ function getUserId() {
   return userId;
 }
 
+// ===== LOGOUT =====
+function logout() {
+  if (confirm('Logout karna chahte ho?')) {
+    localStorage.clear();
+    sessionStorage.clear();
+    window.location.replace('login.html');
+  }
+}
+
+// ===== LOAD USER FROM FIREBASE =====
+async function loadUserFromFirebase(uid) {
+  try {
+    const snapshot = await firebase.database().ref(`users/${uid}`).once('value');
+    if (snapshot.exists()) {
+      const profile = snapshot.val();
+      if (profile.contacts) {
+        contacts = profile.contacts;
+        localStorage.setItem('safeher_contacts', JSON.stringify(contacts));
+        renderContacts();
+        updateContactsStatus();
+      }
+    }
+  } catch(err) {
+    console.log('Error loading profile:', err);
+  }
+}
+
 // ===== LOCATION =====
 let userLocation = null;
 
 navigator.geolocation.watchPosition(
   (pos) => {
-    userLocation = {
-      lat: pos.coords.latitude,
-      lng: pos.coords.longitude
-    };
+    userLocation = { lat: pos.coords.latitude, lng: pos.coords.longitude };
     updateLocationStatus();
     trackMovement();
     getAIRiskScore();
@@ -142,57 +140,36 @@ function updateLocationStatus() {
 // ===== MOVEMENT TRACKING =====
 function trackMovement() {
   if (!userLocation) return;
-
-  // Save to Firebase for live tracking
   db.ref('live_location').set({
     lat: userLocation.lat,
     lng: userLocation.lng,
     timestamp: new Date().toISOString(),
     userId: getUserId()
   });
-
-  // Send to backend
   fetch(`${BACKEND_URL}/api/movement/track`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      userId: getUserId(),
-      location: userLocation
-    })
+    body: JSON.stringify({ userId: getUserId(), location: userLocation })
   })
   .then(res => res.json())
   .then(data => {
-    if (data.anomalyDetected) {
-      showNotification('🤖 AI Alert: ' + data.message);
-    }
+    if (data.anomalyDetected) showNotification('🤖 AI Alert: ' + data.message);
   })
   .catch(err => console.log('Tracking error:', err));
 }
 
-// ===== LIVE LOCATION UPDATE EVERY 30 SECONDS =====
 function startLiveTracking() {
-  // Update immediately
   trackMovement();
-
-  // Then every 30 seconds
   setInterval(() => {
     if (userLocation) {
       trackMovement();
-
-      // Update location status
       const items = document.querySelectorAll('.status-item');
-      if (items[1]) {
-        items[1].innerHTML = `📍 Updated: ${new Date().toLocaleTimeString()}`;
-      }
-
-      console.log('📍 Location updated:', userLocation);
+      if (items[1]) items[1].innerHTML = `📍 Updated: ${new Date().toLocaleTimeString()}`;
     }
   }, 30000);
 }
 
 // ===== AI RISK SCORING =====
-let riskScoreInterval = null;
-
 function getAIRiskScore() {
   if (!userLocation) return;
   fetch(`${BACKEND_URL}/api/ai/risk-score`, {
@@ -204,9 +181,7 @@ function getAIRiskScore() {
   .then(data => {
     if (data.success) {
       updateSafetyStatus(data);
-      if (data.shouldCheckin) {
-        startAICheckin();
-      }
+      if (data.shouldCheckin) startAICheckin();
     }
   })
   .catch(err => console.log('Risk score error:', err));
@@ -215,30 +190,22 @@ function getAIRiskScore() {
 function updateSafetyStatus(riskData) {
   const statusItem = document.querySelector('.status-item');
   if (!statusItem) return;
-
-  const colors = { LOW: 'green', MEDIUM: 'orange', HIGH: 'red' };
-  const labels = { LOW: 'You are Safe', MEDIUM: 'Stay Alert', HIGH: 'High Risk Area!' };
-
+  const colorMap = { LOW: 'green', MEDIUM: 'orange', HIGH: 'red' };
+  const labelMap = { LOW: 'You are Safe', MEDIUM: 'Stay Alert', HIGH: 'High Risk Area!' };
   statusItem.innerHTML = `
-    <span class="status-dot" style="background:${colors[riskData.riskLevel] || 'green'};
-    box-shadow: 0 0 10px ${colors[riskData.riskLevel] || 'green'}"></span>
-    <span>${labels[riskData.riskLevel] || 'You are Safe'}</span>
+    <span class="status-dot" style="background:${colorMap[riskData.riskLevel] || 'green'};
+    box-shadow: 0 0 10px ${colorMap[riskData.riskLevel] || 'green'}"></span>
+    <span>${labelMap[riskData.riskLevel] || 'You are Safe'}</span>
   `;
-
-  if (riskData.safetyAdvice) {
-    showNotification(`🤖 AI Safety Tip: ${riskData.safetyAdvice}`);
+  if (riskData.safetyAdvice) showNotification(`🤖 AI Safety Tip: ${riskData.safetyAdvice}`);
+  const aiScore = document.getElementById('aiRiskScore');
+  const aiStatus = document.getElementById('aiStatus');
+  if (aiScore) {
+    aiScore.textContent = `${riskData.riskScore}/10 - ${riskData.riskLevel}`;
+    aiScore.style.color = riskData.riskLevel === 'HIGH' ? '#e74c3c' :
+                          riskData.riskLevel === 'MEDIUM' ? 'orange' : '#2ecc71';
   }
-  // Update AI panel
-const aiScore = document.getElementById('aiRiskScore');
-const aiStatus = document.getElementById('aiStatus');
-if (aiScore) {
-  aiScore.textContent = `${riskData.riskScore}/10 - ${riskData.riskLevel}`;
-  aiScore.style.color = riskData.riskLevel === 'HIGH' ? '#e74c3c' : 
-                        riskData.riskLevel === 'MEDIUM' ? 'orange' : '#2ecc71';
-}
-if (aiStatus) {
-  aiStatus.textContent = riskData.aiPowered ? 'Gemini AI Active ✅' : 'AI Active ✅';
-}
+  if (aiStatus) aiStatus.textContent = riskData.aiPowered ? 'Gemini AI Active ✅' : 'AI Active ✅';
 }
 
 // ===== AI CHECK-IN =====
@@ -246,23 +213,15 @@ function startAICheckin() {
   fetch(`${BACKEND_URL}/api/ai/checkin`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      location: userLocation,
-      userId: getUserId()
-    })
+    body: JSON.stringify({ location: userLocation, userId: getUserId() })
   })
   .then(res => res.json())
   .then(data => {
     if (data.success && data.requiresResponse) {
       setTimeout(() => {
-        const isSafe = window.confirm(
-          `🤖 SafeHer AI: ${data.message}\n\nClick OK if you're safe, Cancel to send SOS!`
-        );
-        if (!isSafe) {
-          activateSOS();
-        } else {
-          showNotification('✅ Glad you are safe! 💜');
-        }
+        const isSafe = window.confirm(`🤖 SafeHer AI: ${data.message}\n\nClick OK if you're safe, Cancel to send SOS!`);
+        if (!isSafe) activateSOS();
+        else showNotification('✅ Glad you are safe! 💜');
       }, 3000);
     }
   })
@@ -278,53 +237,39 @@ function startVoiceDetection() {
     console.log('Speech recognition not supported');
     return;
   }
-
   const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
   recognition = new SpeechRecognition();
   recognition.continuous = true;
   recognition.interimResults = true;
   recognition.lang = 'hi-IN';
-
   recognition.onresult = (event) => {
-    const transcript = Array.from(event.results)
-      .map(result => result[0].transcript)
-      .join(' ');
-
-    // Send to AI for analysis
+    const transcript = Array.from(event.results).map(r => r[0].transcript).join(' ');
     analyzeVoiceDistress(transcript);
   };
-
-  recognition.onerror = (err) => {
-    console.log('Voice error:', err);
-  };
-
+  recognition.onerror = (err) => { console.log('Voice error:', err); isListening = false; };
   recognition.onend = () => {
-    if (isListening) {
-      recognition.start(); // Restart if still listening
-    }
+    if (isListening) setTimeout(() => { try { recognition.start(); } catch(e) {} }, 1000);
   };
-
-  recognition.start();
-  isListening = true;
-  showNotification('🎙️ Voice protection active - SafeHer is listening');
+  try {
+    recognition.start();
+    isListening = true;
+    const voiceStatus = document.getElementById('voiceStatus');
+    if (voiceStatus) { voiceStatus.textContent = 'Listening 🎙️'; voiceStatus.style.color = '#2ecc71'; }
+    showNotification('🎙️ Voice + Shake protection active!');
+  } catch(e) { console.log('Voice start error:', e); }
 }
 
 function analyzeVoiceDistress(transcript) {
   if (!transcript || transcript.length < 3) return;
-
   fetch(`${BACKEND_URL}/api/ai/voice-alert`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      transcript: transcript,
-      location: userLocation,
-      contacts: contacts
-    })
+    body: JSON.stringify({ transcript, location: userLocation, contacts })
   })
   .then(res => res.json())
   .then(data => {
-    if (data.isDistress && data.confidence > 0.8) {
-      showNotification('🆘 Distress detected! Activating SOS...');
+    if (data.isDistress && data.confidence > 0.8 && !sosActive) {
+      showNotification('🆘 AI detected distress! Activating SOS...');
       activateSOS();
     }
   })
@@ -338,47 +283,33 @@ let currentAlertId = null;
 
 function triggerSOS() {
   if (sosActive) return;
-
   let count = 3;
   showNotification(`🆘 SOS in ${count} seconds... tap again to cancel`);
-
   sosTimer = setInterval(() => {
     count--;
-    if (count <= 0) {
-      clearInterval(sosTimer);
-      activateSOS();
-    } else {
-      showNotification(`🆘 SOS in ${count} seconds...`);
-    }
+    if (count <= 0) { clearInterval(sosTimer); activateSOS(); }
+    else showNotification(`🆘 SOS in ${count} seconds...`);
   }, 1000);
 }
 
 function activateSOS() {
-    // Check if offline
   if (!navigator.onLine) {
-    // Queue SOS for when back online
     queueOfflineSOS({
       location: userLocation || { lat: 0, lng: 0 },
-      contacts: contacts,
-      victimName: "SafeHer User",
-      userId: getUserId(),
-      timestamp: new Date().toISOString()
+      contacts, victimName: "SafeHer User",
+      userId: getUserId(), timestamp: new Date().toISOString()
     });
     showOfflinePanel();
     return;
   }
   sosActive = true;
   document.getElementById('sosOverlay').classList.add('active');
-
-  // Send to backend - triggers REAL phone calls!
   fetch(`${BACKEND_URL}/api/sos`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       location: userLocation || { lat: 0, lng: 0 },
-      contacts: contacts,
-      victimName: "SafeHer User",
-      userId: getUserId()
+      contacts, victimName: "SafeHer User", userId: getUserId()
     })
   })
   .then(res => res.json())
@@ -388,25 +319,18 @@ function activateSOS() {
   })
   .catch(err => console.error('SOS Error:', err));
 
-  // Save to Firebase
   db.ref('sos_alerts').push({
     timestamp: new Date().toISOString(),
     location: userLocation || { lat: 0, lng: 0 },
-    contacts: contacts,
-    status: 'ACTIVE'
+    contacts, status: 'ACTIVE'
   });
-    // Save live location for tracking
   db.ref('live_location').set({
     lat: userLocation ? userLocation.lat : 0,
     lng: userLocation ? userLocation.lng : 0,
     timestamp: new Date().toISOString()
   });
 
-  // Show tracking link
-  const trackingUrl = `https://safeher-28bb2.web.app/track.html`;
-  showNotification(`📍 Live tracking: ${trackingUrl}`);
-
-  // Update status messages
+  showNotification('📍 Live tracking: https://safeher-28bb2.web.app/track.html');
   let step = 0;
   const messages = [
     '📍 Getting your location...',
@@ -414,15 +338,10 @@ function activateSOS() {
     '💬 Sending emergency SMS with location...',
     '✅ All contacts notified! Help is on the way!'
   ];
-
   const statusEl = document.getElementById('sosStatus');
   const interval = setInterval(() => {
-    if (step < messages.length) {
-      statusEl.textContent = messages[step];
-      step++;
-    } else {
-      clearInterval(interval);
-    }
+    if (step < messages.length) { statusEl.textContent = messages[step]; step++; }
+    else clearInterval(interval);
   }, 1500);
 }
 
@@ -431,7 +350,6 @@ function cancelSOS() {
   clearInterval(sosTimer);
   document.getElementById('sosOverlay').classList.remove('active');
   showNotification('SOS Cancelled - Stay Safe! 💜');
-
   if (currentAlertId) {
     fetch(`${BACKEND_URL}/api/sos/cancel`, {
       method: 'POST',
@@ -439,7 +357,6 @@ function cancelSOS() {
       body: JSON.stringify({ alertId: currentAlertId })
     });
   }
-
   db.ref('sos_alerts').limitToLast(1).once('value', (snapshot) => {
     snapshot.forEach((child) => {
       db.ref(`sos_alerts/${child.key}`).update({ status: 'CANCELLED' });
@@ -455,77 +372,36 @@ let shakeTimer = null;
 let voiceActivated = false;
 let comboActivated = false;
 
-// STEP 1 — Shake Detection
 window.addEventListener('devicemotion', (e) => {
   const acc = e.accelerationIncludingGravity;
   if (!acc) return;
-
   if (lastX !== undefined) {
-    const deltaX = Math.abs(acc.x - lastX);
-    const deltaY = Math.abs(acc.y - lastY);
-    const deltaZ = Math.abs(acc.z - lastZ);
-    const totalShake = deltaX + deltaY + deltaZ;
-
+    const totalShake = Math.abs(acc.x - lastX) + Math.abs(acc.y - lastY) + Math.abs(acc.z - lastZ);
     if (totalShake > shakeThreshold) {
       shakeCount++;
-      console.log(`Shake detected! Count: ${shakeCount}`);
-
-      // Clear previous timer
       if (shakeTimer) clearTimeout(shakeTimer);
-
-      // Reset shake count after 3 seconds
-      shakeTimer = setTimeout(() => {
-        shakeCount = 0;
-      }, 3000);
-
-      // 3 shakes = activate voice verification
+      shakeTimer = setTimeout(() => { shakeCount = 0; }, 3000);
       if (shakeCount >= 3 && !comboActivated) {
         comboActivated = true;
         startVoiceVerification();
       }
     }
   }
-
-  lastX = acc.x;
-  lastY = acc.y;
-  lastZ = acc.z;
+  lastX = acc.x; lastY = acc.y; lastZ = acc.z;
 });
 
-// STEP 2 — Voice Verification after Shake
 function startVoiceVerification() {
   showNotification('📳 Shake detected! Say "HELP" or "BACHAO" to confirm SOS!');
-
-  // Visual indicator
   const indicator = document.createElement('div');
   indicator.id = 'voiceIndicator';
-  indicator.style.cssText = `
-    position: fixed;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    background: rgba(231, 76, 60, 0.95);
-    color: white;
-    padding: 30px 40px;
-    border-radius: 20px;
-    text-align: center;
-    z-index: 99998;
-    font-size: 18px;
-    animation: pulse 1s infinite;
-  `;
-  indicator.innerHTML = `
-    <div style="font-size:40px">🎙️</div>
-    <div style="margin:10px 0">Listening for distress word...</div>
-    <div style="font-size:14px;opacity:0.8">Say "HELP" or "BACHAO"</div>
-    <div style="font-size:12px;opacity:0.6;margin-top:5px">
-      Auto cancel in 10 seconds
-    </div>
-  `;
+  indicator.style.cssText = `position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);
+    background:rgba(231,76,60,0.95);color:white;padding:30px 40px;border-radius:20px;
+    text-align:center;z-index:99998;font-size:18px;`;
+  indicator.innerHTML = `<div style="font-size:40px">🎙️</div>
+    <div style="margin:10px 0">Say "HELP" or "BACHAO"</div>
+    <div style="font-size:12px;opacity:0.6;margin-top:5px">Auto cancel in 10 seconds</div>`;
   document.body.appendChild(indicator);
-
-  // Start listening specifically for distress words
   listenForDistressWord();
-
-  // Auto cancel after 10 seconds
   setTimeout(() => {
     const ind = document.getElementById('voiceIndicator');
     if (ind) ind.remove();
@@ -535,301 +411,109 @@ function startVoiceVerification() {
   }, 10000);
 }
 
-// STEP 3 — Listen specifically for distress words
 function listenForDistressWord() {
   if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
-    // Fallback if speech not supported
     showNotification('⚠️ Voice not supported! Tap SOS button if in danger!');
     return;
   }
-
   const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
   const verifyRecognition = new SpeechRecognition();
   verifyRecognition.lang = 'hi-IN';
   verifyRecognition.continuous = false;
   verifyRecognition.interimResults = true;
-
-  const distressWords = [
-    'help', 'bachao', 'bachao mujhe', 'help me',
-    'chodo', 'mat karo', 'madad', 'madad karo',
-    'help karo', 'danger', 'emergency', 'sos',
-    'save me', 'let me go', 'leave me'
-  ];
-
+  const distressWords = ['help','bachao','bachao mujhe','help me','chodo','mat karo',
+    'madad','madad karo','danger','emergency','sos','save me'];
   verifyRecognition.onresult = (event) => {
-    const transcript = Array.from(event.results)
-      .map(result => result[0].transcript.toLowerCase())
-      .join(' ');
-
-    console.log('Heard:', transcript);
-
-    // Check for distress words
-    const distressDetected = distressWords.some(word =>
-      transcript.includes(word.toLowerCase())
-    );
-
-    if (distressDetected && !sosActive) {
+    const transcript = Array.from(event.results).map(r => r[0].transcript.toLowerCase()).join(' ');
+    if (distressWords.some(w => transcript.includes(w)) && !sosActive) {
       voiceActivated = true;
-
-      // Remove indicator
       const ind = document.getElementById('voiceIndicator');
       if (ind) ind.remove();
-
-      showNotification(`🆘 Distress word detected: "${transcript}"! Activating SOS!`);
-
-      // Small delay then activate
-      setTimeout(() => {
-        activateSOS();
-        comboActivated = false;
-      }, 500);
-
+      showNotification(`🆘 Distress detected! Activating SOS!`);
+      setTimeout(() => { activateSOS(); comboActivated = false; }, 500);
       verifyRecognition.stop();
     }
   };
-
-  verifyRecognition.onerror = (err) => {
-    console.log('Voice error:', err);
-    comboActivated = false;
-  };
-
-  verifyRecognition.onend = () => {
-    comboActivated = false;
-  };
-
+  verifyRecognition.onerror = () => { comboActivated = false; };
+  verifyRecognition.onend = () => { comboActivated = false; };
   verifyRecognition.start();
 }
 
-// ===== BACKGROUND VOICE DETECTION =====
-
-
-function startVoiceDetection() {
-  if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
-    console.log('Speech recognition not supported');
-    return;
-    
-  }
-
-  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-  recognition = new SpeechRecognition();
-  recognition.continuous = true;
-  recognition.interimResults = true;
-  recognition.lang = 'hi-IN';
-
-  recognition.onresult = (event) => {
-    const transcript = Array.from(event.results)
-      .map(result => result[0].transcript)
-      .join(' ');
-    analyzeVoiceDistress(transcript);
-  };
-
-  recognition.onerror = (err) => {
-    console.log('Voice error:', err);
-    isListening = false;
-  };
-
-  recognition.onend = () => {
-    if (isListening) {
-      setTimeout(() => {
-        try { recognition.start(); } catch(e) {}
-      }, 1000);
-    }
-  };
-
-  try {
-    recognition.start();
-    isListening = true;
-
-    // Update voice status
-    const voiceStatus = document.getElementById('voiceStatus');
-    if (voiceStatus) {
-      voiceStatus.textContent = 'Listening 🎙️';
-      voiceStatus.style.color = '#2ecc71';
-    }
-
-    showNotification('🎙️ Voice + Shake protection active!');
-  } catch(e) {
-    console.log('Voice start error:', e);
-  }
-}
-
-function analyzeVoiceDistress(transcript) {
-  if (!transcript || transcript.length < 3) return;
-
-  fetch(`${BACKEND_URL}/api/ai/voice-alert`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      transcript: transcript,
-      location: userLocation,
-      contacts: contacts
-    })
-  })
-  .then(res => res.json())
-  .then(data => {
-    if (data.isDistress && data.confidence > 0.8 && !sosActive) {
-      showNotification(`🆘 AI detected distress! Activating SOS...`);
-      activateSOS();
-    }
-  })
-  .catch(err => console.log('Voice analysis error:', err));
-}
-
-
 // ===== SILENT DECOY SCREEN =====
 function activateSilentMode() {
-  // Show fake calculator screen
   const decoy = document.createElement('div');
   decoy.id = 'decoyScreen';
-  decoy.style.cssText = `
-    position: fixed;
-    top: 0; left: 0;
-    width: 100%; height: 100%;
-    background: #1a1a1a;
-    z-index: 99999;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    font-family: Arial, sans-serif;
-  `;
+  decoy.style.cssText = `position:fixed;top:0;left:0;width:100%;height:100%;
+    background:#000;z-index:99999;display:flex;flex-direction:column;
+    align-items:center;justify-content:flex-end;font-family:-apple-system,sans-serif;`;
   decoy.innerHTML = `
-    <div style="color:white;font-size:48px;margin-bottom:20px;">🧮</div>
-    <div style="color:white;font-size:24px;">Calculator</div>
-    <div style="color:rgba(255,255,255,0.5);font-size:14px;margin-top:10px;">
-      Triple tap to exit
+    <div style="width:100%;padding:20px 30px;text-align:right;">
+      <div style="color:rgba(255,255,255,0.5);font-size:24px;">0</div>
+      <div id="calcDisplay" style="color:white;font-size:64px;font-weight:200;">0</div>
     </div>
-  `;
+    <div style="width:100%;display:grid;grid-template-columns:repeat(4,1fr);gap:12px;padding:20px;">
+      <button onclick="calcBtn('AC')" style="background:#a5a5a5;color:black;border:none;border-radius:50%;width:75px;height:75px;font-size:24px;cursor:pointer;">AC</button>
+      <button onclick="calcBtn('+/-')" style="background:#a5a5a5;color:black;border:none;border-radius:50%;width:75px;height:75px;font-size:24px;cursor:pointer;">+/-</button>
+      <button onclick="calcBtn('%')" style="background:#a5a5a5;color:black;border:none;border-radius:50%;width:75px;height:75px;font-size:24px;cursor:pointer;">%</button>
+      <button onclick="calcBtn('/')" style="background:#ff9500;color:white;border:none;border-radius:50%;width:75px;height:75px;font-size:24px;cursor:pointer;">÷</button>
+      <button onclick="calcBtn('7')" style="background:#333;color:white;border:none;border-radius:50%;width:75px;height:75px;font-size:24px;cursor:pointer;">7</button>
+      <button onclick="calcBtn('8')" style="background:#333;color:white;border:none;border-radius:50%;width:75px;height:75px;font-size:24px;cursor:pointer;">8</button>
+      <button onclick="calcBtn('9')" style="background:#333;color:white;border:none;border-radius:50%;width:75px;height:75px;font-size:24px;cursor:pointer;">9</button>
+      <button onclick="calcBtn('x')" style="background:#ff9500;color:white;border:none;border-radius:50%;width:75px;height:75px;font-size:24px;cursor:pointer;">×</button>
+      <button onclick="calcBtn('4')" style="background:#333;color:white;border:none;border-radius:50%;width:75px;height:75px;font-size:24px;cursor:pointer;">4</button>
+      <button onclick="calcBtn('5')" style="background:#333;color:white;border:none;border-radius:50%;width:75px;height:75px;font-size:24px;cursor:pointer;">5</button>
+      <button onclick="calcBtn('6')" style="background:#333;color:white;border:none;border-radius:50%;width:75px;height:75px;font-size:24px;cursor:pointer;">6</button>
+      <button onclick="calcBtn('-')" style="background:#ff9500;color:white;border:none;border-radius:50%;width:75px;height:75px;font-size:24px;cursor:pointer;">−</button>
+      <button onclick="calcBtn('1')" style="background:#333;color:white;border:none;border-radius:50%;width:75px;height:75px;font-size:24px;cursor:pointer;">1</button>
+      <button onclick="calcBtn('2')" style="background:#333;color:white;border:none;border-radius:50%;width:75px;height:75px;font-size:24px;cursor:pointer;">2</button>
+      <button onclick="calcBtn('3')" style="background:#333;color:white;border:none;border-radius:50%;width:75px;height:75px;font-size:24px;cursor:pointer;">3</button>
+      <button onclick="calcBtn('+')" style="background:#ff9500;color:white;border:none;border-radius:50%;width:75px;height:75px;font-size:24px;cursor:pointer;">+</button>
+      <button onclick="calcBtn('0')" style="background:#333;color:white;border:none;border-radius:50%;width:150px;height:75px;font-size:24px;cursor:pointer;grid-column:span 2;border-radius:40px;text-align:left;padding-left:28px;">0</button>
+      <button onclick="calcBtn('.')" style="background:#333;color:white;border:none;border-radius:50%;width:75px;height:75px;font-size:24px;cursor:pointer;">.</button>
+      <button onclick="calcBtn('=')" style="background:#ff9500;color:white;border:none;border-radius:50%;width:75px;height:75px;font-size:24px;cursor:pointer;">=</button>
+    </div>`;
 
   let tapCount = 0;
-  decoy.addEventListener('click', () => {
+  let tapTimer;
+  decoy.addEventListener('click', (e) => {
+    if (e.target.tagName === 'BUTTON') return;
     tapCount++;
-    if (tapCount >= 3) {
-      decoy.remove();
-    }
+    clearTimeout(tapTimer);
+    tapTimer = setTimeout(() => { tapCount = 0; }, 500);
+    if (tapCount >= 3) { decoy.remove(); tapCount = 0; }
   });
-
   document.body.appendChild(decoy);
-
-  // Secretly activate SOS
   activateSOS();
   showNotification('🤫 Silent mode activated');
+}
+
+let calcValue = '0';
+function calcBtn(val) {
+  const display = document.getElementById('calcDisplay');
+  if (!display) return;
+  if (val === 'AC') { calcValue = '0'; }
+  else if (val === '=') {
+    try { calcValue = String(eval(calcValue.replace('x','*').replace('÷','/'))); }
+    catch { calcValue = 'Error'; }
+  } else { calcValue = calcValue === '0' ? val : calcValue + val; }
+  display.textContent = calcValue;
 }
 
 // ===== NOTIFICATION SYSTEM =====
 function showNotification(message) {
   const existing = document.querySelector('.notification');
   if (existing) existing.remove();
-
   const notif = document.createElement('div');
   notif.className = 'notification';
   notif.textContent = message;
-  notif.style.cssText = `
-    position: fixed;
-    bottom: 30px;
-    left: 50%;
-    transform: translateX(-50%);
-    background: rgba(155, 89, 182, 0.95);
-    color: white;
-    padding: 15px 30px;
-    border-radius: 25px;
-    font-size: 14px;
-    z-index: 10000;
-    max-width: 90%;
-    text-align: center;
-  `;
+  notif.style.cssText = `position:fixed;bottom:30px;left:50%;transform:translateX(-50%);
+    background:rgba(155,89,182,0.95);color:white;padding:15px 30px;border-radius:25px;
+    font-size:14px;z-index:10000;max-width:90%;text-align:center;`;
   document.body.appendChild(notif);
   setTimeout(() => notif.remove(), 4000);
 }
 
-// ===== INITIALIZE =====
-document.addEventListener('DOMContentLoaded', () => {
-  const userId = localStorage.getItem('safeher_user_id');
-  const userName = localStorage.getItem('safeher_user_name');
-  
-  // Valid login check - both must exist
-  if (!userId || !userName) {
-    localStorage.clear(); // Clean any partial data
-    window.location.href = 'login.html';
-    return;
-  }
-  function logout() {
-  if (confirm('Logout karna chahte ho?')) {
-    localStorage.clear();
-    sessionStorage.clear();
-    window.location.replace('login.html');
-  }
-  }
-  }
-
-  // Show username in navbar
-  if(userName) {
-    const logo = document.querySelector('.logo');
-    if (logo) logo.textContent = `🛡️ Hi, ${userName}!`;
-  }
-  renderContacts();
-  updateContactsStatus();
-  updateOnlineStatus(); 
-  showNotification('🛡️ SafeHer AI is protecting you!');
-
-  // Start AI risk scoring every 5 minutes
-  setInterval(getAIRiskScore, 300000);
-
-  // Start voice detection
-  startVoiceDetection();
-
-  // Start live tracking
-  startLiveTracking();
-
-  // Start AI checkin every 30 minutes
-  setInterval(startAICheckin, 1800000);
-});
-// ===== PWA SERVICE WORKER =====
-if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/sw.js')
-      .then((registration) => {
-        console.log('SafeHer SW registered:', registration);
-        showNotification('📱 SafeHer installed! Works offline too!');
-      })
-      .catch((error) => {
-        console.log('SW registration failed:', error);
-      });
-  });
-}
-
-// ===== OFFLINE SOS QUEUE =====
-async function queueOfflineSOS(sosData) {
-  if ('serviceWorker' in navigator && 'SyncManager' in window) {
-    const cache = await caches.open('safeher-sos-queue');
-    await cache.put(
-      new Request(`/sos-queue-${Date.now()}`),
-      new Response(JSON.stringify(sosData))
-    );
-
-    const registration = await navigator.serviceWorker.ready;
-    await registration.sync.register('sos-sync');
-    showNotification('📵 SOS queued! Will send when online');
-  }
-}
-
-// ===== ENHANCED OFFLINE DETECTION =====
-window.addEventListener('online', () => {
-  showNotification('✅ Back online! Full protection restored 💜');
-  document.getElementById('offlinePanel')?.classList.add('hidden');
-
-  // Sync any queued SOS alerts
-  if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.ready.then(reg => {
-      reg.sync.register('sos-sync');
-    });
-  }
-});
-
-window.addEventListener('offline', () => {
-  showNotification('📵 Offline mode activated! Emergency features ready');
-  showOfflinePanel();
-});
-// ===== OFFLINE PANEL FUNCTIONS =====
+// ===== OFFLINE PANEL =====
 function showOfflinePanel() {
   const panel = document.getElementById('offlinePanel');
   if (panel) panel.classList.remove('hidden');
@@ -841,9 +525,69 @@ function dismissOfflinePanel() {
 }
 
 function updateOnlineStatus() {
-  if (!navigator.onLine) {
-    showOfflinePanel();
-  } else {
-    dismissOfflinePanel();
+  if (!navigator.onLine) showOfflinePanel();
+  else dismissOfflinePanel();
+}
+
+// ===== OFFLINE SOS QUEUE =====
+async function queueOfflineSOS(sosData) {
+  if ('serviceWorker' in navigator && 'SyncManager' in window) {
+    const cache = await caches.open('safeher-sos-queue');
+    await cache.put(new Request(`/sos-queue-${Date.now()}`), new Response(JSON.stringify(sosData)));
+    const registration = await navigator.serviceWorker.ready;
+    await registration.sync.register('sos-sync');
+    showNotification('📵 SOS queued! Will send when online');
   }
 }
+
+window.addEventListener('online', () => {
+  showNotification('✅ Back online! Full protection restored 💜');
+  document.getElementById('offlinePanel')?.classList.add('hidden');
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.ready.then(reg => reg.sync.register('sos-sync'));
+  }
+});
+
+window.addEventListener('offline', () => {
+  showNotification('📵 Offline mode activated! Emergency features ready');
+  showOfflinePanel();
+});
+
+// ===== PWA SERVICE WORKER =====
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js')
+      .then(reg => console.log('SafeHer SW registered:', reg))
+      .catch(err => console.log('SW registration failed:', err));
+  });
+}
+
+// ===== INITIALIZE =====
+document.addEventListener('DOMContentLoaded', () => {
+  const userId = localStorage.getItem('safeher_user_id');
+  const userName = localStorage.getItem('safeher_user_name');
+
+  // Login check
+  if (!userId || !userName) {
+    localStorage.clear();
+    window.location.href = 'login.html';
+    return;
+  }
+
+  // Show username in navbar
+  const logo = document.querySelector('.logo');
+  if (logo) logo.textContent = `🛡️ Hi, ${userName}!`;
+
+  // Load contacts from Firebase
+  loadUserFromFirebase(userId);
+
+  renderContacts();
+  updateContactsStatus();
+  updateOnlineStatus();
+  showNotification('🛡️ SafeHer AI is protecting you!');
+
+  setInterval(getAIRiskScore, 300000);
+  startVoiceDetection();
+  startLiveTracking();
+  setInterval(startAICheckin, 1800000);
+});
